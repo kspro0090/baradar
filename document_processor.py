@@ -26,25 +26,16 @@ import base64
 class DocumentProcessor:
     """Process documents locally without modifying the original"""
     
-    def __init__(self):
-        # Register Persian fonts for PDF generation
-        self._register_fonts()
+    def __init__(self, font_manager=None):
+        # Use provided font manager or create a new one
+        if font_manager:
+            self.font_manager = font_manager
+        else:
+            from font_manager import FontManager
+            self.font_manager = FontManager()
         
-    def _register_fonts(self):
-        """Register Persian fonts for ReportLab"""
-        font_paths = {
-            'Vazir': 'static/fonts/Vazir.ttf',
-            'Vazir-Bold': 'static/fonts/Vazir-Bold.ttf',
-            'IRANSans': 'static/fonts/IRANSansWeb.ttf',
-            'IRANSans-Bold': 'static/fonts/IRANSansWeb_Bold.ttf'
-        }
-        
-        for font_name, font_path in font_paths.items():
-            if os.path.exists(font_path):
-                try:
-                    pdfmetrics.registerFont(TTFont(font_name, font_path))
-                except:
-                    pass
+        # Register fonts is now handled by font manager
+        # No need to register fonts here
     
     def process_docx_template(self, docx_data, replacements):
         """Process DOCX template and replace placeholders while preserving formatting"""
@@ -346,7 +337,7 @@ class DocumentProcessor:
             persian_style = ParagraphStyle(
                 'Persian',
                 parent=styles['Normal'],
-                fontName='Vazir',
+                fontName=self.font_manager.get_font_for_pdf('Vazir'),
                 fontSize=12,
                 leading=20,
                 alignment=TA_RIGHT,
@@ -359,7 +350,7 @@ class DocumentProcessor:
                 'PersianHeading',
                 parent=persian_style,
                 fontSize=16,
-                fontName='Vazir-Bold',
+                fontName=self.font_manager.get_font_for_pdf('Vazir-Bold'),
                 spaceAfter=12,
                 spaceBefore=12
             )
@@ -377,11 +368,25 @@ class DocumentProcessor:
                     if para and para.text.strip():
                         text = para.text.strip()
                         
+                        # Check if paragraph has specific font
+                        para_font = None
+                        if para.runs and para.runs[0].font.name:
+                            para_font = self.font_manager.get_font_for_pdf(para.runs[0].font.name)
+                        
                         # Check if it's a heading based on style
                         if para.style.name.startswith('Heading'):
                             # Prepare Persian text for heading
                             persian_text = self._prepare_persian_text(text)
-                            pdf_para = Paragraph(persian_text, persian_heading)
+                            
+                            # Create custom heading style with document font
+                            custom_heading = ParagraphStyle(
+                                'CustomHeading',
+                                parent=persian_heading
+                            )
+                            if para_font:
+                                custom_heading.fontName = para_font
+                            
+                            pdf_para = Paragraph(persian_text, custom_heading)
                         else:
                             # Regular paragraph
                             persian_text = self._prepare_persian_text(text)
@@ -391,6 +396,10 @@ class DocumentProcessor:
                                 'CustomPersian',
                                 parent=persian_style
                             )
+                            
+                            # Use paragraph's font if available
+                            if para_font:
+                                para_style.fontName = para_font
                             
                             # Check alignment
                             if para.alignment:
@@ -437,7 +446,7 @@ class DocumentProcessor:
                             # Apply table style
                             table_style = TableStyle([
                                 ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-                                ('FONTNAME', (0, 0), (-1, -1), 'Vazir'),
+                                ('FONTNAME', (0, 0), (-1, -1), self.font_manager.get_font_for_pdf('Vazir')),
                                 ('FONTSIZE', (0, 0), (-1, -1), 10),
                                 ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
                                 ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -449,7 +458,7 @@ class DocumentProcessor:
                             # Check if first row should be header
                             if len(table_data) > 1:
                                 table_style.add('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey)
-                                table_style.add('FONTNAME', (0, 0), (-1, 0), 'Vazir-Bold')
+                                table_style.add('FONTNAME', (0, 0), (-1, 0), self.font_manager.get_font_for_pdf('Vazir-Bold'))
                             
                             t.setStyle(table_style)
                             elements.append(t)

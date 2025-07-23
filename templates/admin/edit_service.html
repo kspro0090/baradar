@@ -119,6 +119,25 @@
                     </form>
                 </div>
             </div>
+            
+            <!-- Font Check Section -->
+            <div class="card mt-3" id="font-check-section" style="display: none;">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-fonts"></i>
+                            فونت‌های استفاده شده در قالب
+                        </h5>
+                        <button type="button" class="btn btn-sm btn-info" id="check-fonts">
+                            <i class="bi bi-search"></i>
+                            بررسی فونت‌ها
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" id="font-check-results">
+                    <!-- Font check results will be displayed here -->
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -265,5 +284,111 @@ function escapeHtml(text) {
     };
     return text.replace(/[&<>"']/g, m => map[m]);
 }
+
+// Check fonts
+document.getElementById('check-fonts').addEventListener('click', function() {
+    const button = this;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> در حال بررسی...';
+    
+    fetch(`/admin/services/{{ service.id }}/check-fonts`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let html = '';
+                
+                // Show font details
+                if (data.font_details.all_fonts.length > 0) {
+                    html += '<h6>فونت‌های شناسایی شده:</h6>';
+                    html += '<div class="row mb-3">';
+                    
+                    data.font_details.all_fonts.forEach(font => {
+                        const isAvailable = data.font_status[font];
+                        const badgeClass = isAvailable ? 'bg-success' : 'bg-danger';
+                        const icon = isAvailable ? 'bi-check-circle' : 'bi-exclamation-circle';
+                        
+                        html += `
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                                    <span>${font}</span>
+                                    <span class="badge ${badgeClass}">
+                                        <i class="bi ${icon}"></i>
+                                        ${isAvailable ? 'موجود' : 'ناموجود'}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    
+                    if (data.has_missing) {
+                        html += `
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>توجه!</strong> برخی فونت‌ها یافت نشدند:
+                                <ul class="mb-0 mt-2">
+                        `;
+                        
+                        data.missing_fonts.forEach(font => {
+                            html += `<li>${font}</li>`;
+                        });
+                        
+                        html += `
+                                </ul>
+                                <a href="{{ url_for('manage_fonts') }}" class="btn btn-sm btn-warning mt-2">
+                                    <i class="bi bi-upload"></i>
+                                    آپلود فونت‌های ناموجود
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i>
+                                تمام فونت‌های مورد نیاز موجود هستند.
+                            </div>
+                        `;
+                    }
+                    
+                    // Show font usage details
+                    if (data.font_details.default_font) {
+                        html += `<p><strong>فونت پیش‌فرض:</strong> ${data.font_details.default_font}</p>`;
+                    }
+                    
+                } else {
+                    html += '<p class="text-muted">هیچ فونتی در قالب شناسایی نشد.</p>';
+                }
+                
+                document.getElementById('font-check-results').innerHTML = html;
+            } else {
+                document.getElementById('font-check-results').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle"></i>
+                        خطا: ${data.error || 'خطای ناشناخته'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('font-check-results').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i>
+                    خطا در بررسی فونت‌ها: ${error}
+                </div>
+            `;
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-search"></i> بررسی فونت‌ها';
+        });
+});
+
+// Auto-check fonts when template is loaded
+{% if service.google_doc_id %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('font-check-section').style.display = 'block';
+});
+{% endif %}
 </script>
 {% endblock %}

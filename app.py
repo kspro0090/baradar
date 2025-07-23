@@ -11,6 +11,7 @@ import tempfile
 
 from google_docs_service import GoogleDocsService
 from document_processor import DocumentProcessor
+from font_manager import font_manager, FontManager
 from wtforms.validators import DataRequired, Email
 from wtforms import StringField, IntegerField, TextAreaField, SelectField
 
@@ -361,6 +362,105 @@ def detect_placeholders(service_id):
         app.logger.error(f"Error detecting placeholders: {str(e)}")
         return jsonify({'error': f'Error detecting placeholders: {str(e)}'}), 500
 
+@app.route('/admin/services/<int:service_id>/check-fonts')
+@login_required
+@system_manager_required
+def check_template_fonts(service_id):
+    """Check fonts used in the service's template"""
+    service = Service.query.get_or_404(service_id)
+    
+    if not service.google_doc_id:
+        return jsonify({'error': 'No template configured for this service'}), 400
+    
+    if not google_docs_service:
+        return jsonify({'error': 'Google Docs service not configured'}), 500
+    
+    try:
+        # Export template as DOCX
+        docx_data = google_docs_service.export_as_docx(service.google_doc_id)
+        
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+            tmp_file.write(docx_data)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # Extract fonts
+            font_details = font_manager.extract_fonts_from_docx(tmp_file_path)
+            all_fonts = font_details['all_fonts']
+            
+            # Check font availability
+            font_status = font_manager.check_missing_fonts(all_fonts)
+            missing_fonts = font_manager.get_missing_fonts(all_fonts)
+            
+            return jsonify({
+                'success': True,
+                'font_details': {
+                    'all_fonts': list(font_details['all_fonts']),
+                    'default_font': font_details['default_font'],
+                    'paragraph_fonts': list(font_details['paragraph_fonts']),
+                    'table_fonts': list(font_details['table_fonts']),
+                    'header_footer_fonts': list(font_details['header_footer_fonts'])
+                },
+                'font_status': font_status,
+                'missing_fonts': missing_fonts,
+                'has_missing': len(missing_fonts) > 0
+            })
+            
+        finally:
+            # Clean up temp file
+            if os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
+                
+    except Exception as e:
+        app.logger.error(f"Error checking template fonts: {str(e)}")
+        return jsonify({'error': f'Error checking fonts: {str(e)}'}), 500
+
+@app.route('/admin/fonts')
+@login_required
+@system_manager_required
+def manage_fonts():
+    """Font management page"""
+    available_fonts = font_manager.get_available_fonts()
+    return render_template('admin/fonts.html', fonts=available_fonts)
+
+@app.route('/admin/fonts/upload', methods=['POST'])
+@login_required
+@system_manager_required
+def upload_font():
+    """Upload a new font file"""
+    if 'font' not in request.files:
+        flash('No font file provided', 'danger')
+        return redirect(url_for('manage_fonts'))
+    
+    file = request.files['font']
+    if file.filename == '':
+        flash('No file selected', 'danger')
+        return redirect(url_for('manage_fonts'))
+    
+    success, message = font_manager.save_uploaded_font(file, file.filename)
+    
+    if success:
+        flash(message, 'success')
+    else:
+        flash(message, 'danger')
+    
+    return redirect(url_for('manage_fonts'))
+
+@app.route('/admin/fonts/<filename>/delete', methods=['POST'])
+@login_required
+@system_manager_required
+def delete_font(filename):
+    """Delete a font file"""
+    success, message = font_manager.delete_font(filename)
+    
+    if success:
+        flash(message, 'success')
+    else:
+        flash(message, 'danger')
+    
+    return redirect(url_for('manage_fonts'))
+
 
 # Approval Admin Routes
 @app.route('/approver')
@@ -535,8 +635,8 @@ def generate_pdf_from_request(service_request):
         raise Exception("No template configured for this service")
     
     try:
-        # Initialize document processor
-        doc_processor = DocumentProcessor()
+        # Initialize document processor with font manager
+        doc_processor = DocumentProcessor(font_manager=font_manager)
         
         # Prepare replacements mapping
         replacements = {}
