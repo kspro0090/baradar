@@ -70,6 +70,25 @@
         
         <!-- Fields List -->
         <div class="col-md-7">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">شناسایی جایگزین‌ها در قالب</h5>
+                        <button type="button" class="btn btn-sm btn-info" id="detect-placeholders">
+                            <i class="bi bi-search"></i>
+                            شناسایی خودکار
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" id="placeholders-section" style="display: none;">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        جایگزین‌های زیر در قالب شناسایی شدند. آنها را به فیلدهای فرم نگاشت کنید.
+                    </div>
+                    <div id="placeholders-list"></div>
+                </div>
+            </div>
+            
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">فیلدهای موجود</h5>
@@ -123,6 +142,62 @@ document.getElementById('field_type').addEventListener('change', function() {
     } else {
         optionsField.style.display = 'none';
     }
+});
+
+// Detect placeholders in template
+document.getElementById('detect-placeholders').addEventListener('click', function() {
+    const button = this;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> در حال شناسایی...';
+    
+    fetch(`/admin/services/{{ service.id }}/detect-placeholders`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const section = document.getElementById('placeholders-section');
+                const list = document.getElementById('placeholders-list');
+                
+                if (data.placeholders.length > 0) {
+                    let html = '<div class="row">';
+                    data.placeholders.forEach(placeholder => {
+                        const mapped = data.existing_mappings[placeholder];
+                        const badgeClass = mapped ? 'bg-success' : 'bg-warning';
+                        const badgeText = mapped ? `نگاشت شده به: ${mapped}` : 'نگاشت نشده';
+                        
+                        html += `
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                                    <code>{{${placeholder}}}</code>
+                                    <span class="badge ${badgeClass}">${badgeText}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    list.innerHTML = html;
+                    section.style.display = 'block';
+                    
+                    // Auto-fill document placeholder if only one is selected
+                    const unmapped = data.placeholders.filter(p => !data.existing_mappings[p]);
+                    if (unmapped.length === 1 && !document.getElementById('document_placeholder').value) {
+                        document.getElementById('document_placeholder').value = unmapped[0];
+                    }
+                } else {
+                    list.innerHTML = '<p class="text-muted">هیچ جایگزینی در قالب یافت نشد.</p>';
+                    section.style.display = 'block';
+                }
+            } else {
+                alert('خطا: ' + (data.error || 'خطای ناشناخته'));
+            }
+        })
+        .catch(error => {
+            alert('خطا در شناسایی جایگزین‌ها: ' + error);
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-search"></i> شناسایی خودکار';
+        });
 });
 </script>
 {% endblock %}

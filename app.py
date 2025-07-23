@@ -6,6 +6,8 @@ import os
 import secrets
 import json
 from datetime import datetime
+import re
+import tempfile
 
 from google_docs_service import GoogleDocsService
 from document_processor import DocumentProcessor
@@ -282,6 +284,82 @@ def service_stats(service_id):
                          service=service, 
                          stats=stats, 
                          requests=requests)
+
+@app.route('/admin/services/<int:service_id>/detect-placeholders')
+@login_required
+@system_manager_required
+def detect_placeholders(service_id):
+    """Detect placeholders in the service's template"""
+    service = Service.query.get_or_404(service_id)
+    
+    if not service.google_doc_id:
+        return jsonify({'error': 'No template configured for this service'}), 400
+    
+    if not google_docs_service:
+        return jsonify({'error': 'Google Docs service not configured'}), 500
+    
+    try:
+        # Export template as DOCX to detect placeholders
+        docx_data = google_docs_service.export_as_docx(service.google_doc_id)
+        
+        # Create a temporary file to analyze
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+            tmp_file.write(docx_data)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            from docx import Document
+            doc = Document(tmp_file_path)
+            
+            # Detect placeholders
+            placeholders = set()
+            
+            # Check paragraphs
+            for paragraph in doc.paragraphs:
+                text = paragraph.text
+                found = re.findall(r'\{\{([^}]+)\}\}', text)
+                placeholders.update(found)
+            
+            # Check tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            text = paragraph.text
+                            found = re.findall(r'\{\{([^}]+)\}\}', text)
+                            placeholders.update(found)
+            
+            # Check headers and footers
+            for section in doc.sections:
+                for paragraph in section.header.paragraphs:
+                    text = paragraph.text
+                    found = re.findall(r'\{\{([^}]+)\}\}', text)
+                    placeholders.update(found)
+                for paragraph in section.footer.paragraphs:
+                    text = paragraph.text
+                    found = re.findall(r'\{\{([^}]+)\}\}', text)
+                    placeholders.update(found)
+            
+            # Get existing field mappings
+            existing_mappings = {}
+            for field in service.form_fields:
+                if field.document_placeholder:
+                    existing_mappings[field.document_placeholder] = field.field_name
+            
+            return jsonify({
+                'success': True,
+                'placeholders': sorted(list(placeholders)),
+                'existing_mappings': existing_mappings
+            })
+            
+        finally:
+            # Clean up temp file
+            if os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
+                
+    except Exception as e:
+        app.logger.error(f"Error detecting placeholders: {str(e)}")
+        return jsonify({'error': f'Error detecting placeholders: {str(e)}'}), 500
 
 
 # Approval Admin Routes

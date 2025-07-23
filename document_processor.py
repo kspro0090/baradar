@@ -47,7 +47,7 @@ class DocumentProcessor:
                     pass
     
     def process_docx_template(self, docx_data, replacements):
-        """Process DOCX template and replace placeholders"""
+        """Process DOCX template and replace placeholders while preserving formatting"""
         # Create a temporary file to work with
         with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
             tmp_file.write(docx_data)
@@ -57,27 +57,29 @@ class DocumentProcessor:
             # Open the document
             doc = Document(tmp_file_path)
             
+            # First, detect all placeholders in the document
+            placeholders_found = self._detect_placeholders_in_docx(doc)
+            print(f"Found placeholders in document: {placeholders_found}")
+            
             # Replace placeholders in paragraphs
             for paragraph in doc.paragraphs:
-                for placeholder, value in replacements.items():
-                    placeholder_pattern = f'{{{{{placeholder}}}}}'
-                    if placeholder_pattern in paragraph.text:
-                        # Replace in each run to preserve formatting
-                        for run in paragraph.runs:
-                            if placeholder_pattern in run.text:
-                                run.text = run.text.replace(placeholder_pattern, value)
+                self._replace_placeholders_in_paragraph(paragraph, replacements)
             
             # Replace placeholders in tables
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
-                            for placeholder, value in replacements.items():
-                                placeholder_pattern = f'{{{{{placeholder}}}}}'
-                                if placeholder_pattern in paragraph.text:
-                                    for run in paragraph.runs:
-                                        if placeholder_pattern in run.text:
-                                            run.text = run.text.replace(placeholder_pattern, value)
+                            self._replace_placeholders_in_paragraph(paragraph, replacements)
+            
+            # Replace placeholders in headers and footers
+            for section in doc.sections:
+                # Header
+                for paragraph in section.header.paragraphs:
+                    self._replace_placeholders_in_paragraph(paragraph, replacements)
+                # Footer
+                for paragraph in section.footer.paragraphs:
+                    self._replace_placeholders_in_paragraph(paragraph, replacements)
             
             # Save the modified document
             output_path = tmp_file_path.replace('.docx', '_filled.docx')
@@ -96,6 +98,105 @@ class DocumentProcessor:
             # Clean up temp file
             if os.path.exists(tmp_file_path):
                 os.unlink(tmp_file_path)
+    
+    def _detect_placeholders_in_docx(self, doc):
+        """Detect all placeholders in the document"""
+        placeholders = set()
+        
+        # Check paragraphs
+        for paragraph in doc.paragraphs:
+            text = paragraph.text
+            found = re.findall(r'\{\{([^}]+)\}\}', text)
+            placeholders.update(found)
+        
+        # Check tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        text = paragraph.text
+                        found = re.findall(r'\{\{([^}]+)\}\}', text)
+                        placeholders.update(found)
+        
+        # Check headers and footers
+        for section in doc.sections:
+            for paragraph in section.header.paragraphs:
+                text = paragraph.text
+                found = re.findall(r'\{\{([^}]+)\}\}', text)
+                placeholders.update(found)
+            for paragraph in section.footer.paragraphs:
+                text = paragraph.text
+                found = re.findall(r'\{\{([^}]+)\}\}', text)
+                placeholders.update(found)
+        
+        return placeholders
+    
+    def _replace_placeholders_in_paragraph(self, paragraph, replacements):
+        """Replace placeholders in a paragraph while preserving formatting"""
+        # Get the full text of the paragraph
+        full_text = paragraph.text
+        
+        # Check if any placeholders exist in this paragraph
+        has_placeholders = False
+        for placeholder, value in replacements.items():
+            placeholder_pattern = f'{{{{{placeholder}}}}}'
+            if placeholder_pattern in full_text:
+                has_placeholders = True
+                break
+        
+        if not has_placeholders:
+            return
+        
+        # If paragraph has placeholders, we need to handle runs carefully
+        # First, collect all runs and their properties
+        runs_data = []
+        for run in paragraph.runs:
+            runs_data.append({
+                'text': run.text,
+                'bold': run.bold,
+                'italic': run.italic,
+                'underline': run.underline,
+                'font_name': run.font.name,
+                'font_size': run.font.size,
+                'font_color': run.font.color.rgb if run.font.color.rgb else None,
+                'highlight_color': run.font.highlight_color
+            })
+        
+        # Reconstruct the full text from runs
+        full_text = ''.join(run['text'] for run in runs_data)
+        
+        # Replace all placeholders in the full text
+        for placeholder, value in replacements.items():
+            placeholder_pattern = f'{{{{{placeholder}}}}}'
+            full_text = full_text.replace(placeholder_pattern, value)
+        
+        # Clear the paragraph
+        paragraph.clear()
+        
+        # If we have formatting information, try to preserve it
+        if runs_data and len(runs_data) > 0:
+            # Use the formatting from the first run as default
+            default_format = runs_data[0]
+            
+            # Add the replaced text with the default formatting
+            run = paragraph.add_run(full_text)
+            if default_format['bold'] is not None:
+                run.bold = default_format['bold']
+            if default_format['italic'] is not None:
+                run.italic = default_format['italic']
+            if default_format['underline'] is not None:
+                run.underline = default_format['underline']
+            if default_format['font_name']:
+                run.font.name = default_format['font_name']
+            if default_format['font_size']:
+                run.font.size = default_format['font_size']
+            if default_format['font_color']:
+                run.font.color.rgb = default_format['font_color']
+            if default_format['highlight_color']:
+                run.font.highlight_color = default_format['highlight_color']
+        else:
+            # No formatting info, just add the text
+            paragraph.add_run(full_text)
     
     def process_html_template(self, html_data, replacements):
         """Process HTML template and replace placeholders"""
@@ -215,7 +316,7 @@ class DocumentProcessor:
             return False
     
     def generate_pdf_from_docx(self, docx_data, output_path):
-        """Generate PDF from DOCX content with Persian support"""
+        """Generate PDF from DOCX content with Persian support and layout preservation"""
         # Create a temporary file for the DOCX
         with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
             tmp_file.write(docx_data)
@@ -253,54 +354,106 @@ class DocumentProcessor:
                 direction='RTL'
             )
             
-            # Process paragraphs
-            for paragraph in doc.paragraphs:
-                text = paragraph.text.strip()
-                if text:
-                    # Prepare Persian text
-                    persian_text = self._prepare_persian_text(text)
-                    
-                    # Check if it's a heading based on style
-                    if paragraph.style.name.startswith('Heading'):
-                        heading_style = ParagraphStyle(
-                            'PersianHeading',
-                            parent=persian_style,
-                            fontSize=16,
-                            fontName='Vazir-Bold',
-                            spaceAfter=12
-                        )
-                        para = Paragraph(persian_text, heading_style)
-                    else:
-                        para = Paragraph(persian_text, persian_style)
-                    
-                    elements.append(para)
-                    elements.append(Spacer(1, 12))
+            # Persian heading style
+            persian_heading = ParagraphStyle(
+                'PersianHeading',
+                parent=persian_style,
+                fontSize=16,
+                fontName='Vazir-Bold',
+                spaceAfter=12,
+                spaceBefore=12
+            )
             
-            # Process tables
-            for table in doc.tables:
-                table_data = []
-                for row in table.rows:
-                    row_data = []
-                    for cell in row.cells:
-                        cell_text = cell.text.strip()
-                        persian_text = self._prepare_persian_text(cell_text)
-                        row_data.append(Paragraph(persian_text, persian_style))
-                    table_data.append(row_data)
+            # Process document elements
+            for element in doc.element.body:
+                if element.tag.endswith('p'):
+                    # Process paragraph
+                    para = None
+                    for p in doc.paragraphs:
+                        if p._element == element:
+                            para = p
+                            break
+                    
+                    if para and para.text.strip():
+                        text = para.text.strip()
+                        
+                        # Check if it's a heading based on style
+                        if para.style.name.startswith('Heading'):
+                            # Prepare Persian text for heading
+                            persian_text = self._prepare_persian_text(text)
+                            pdf_para = Paragraph(persian_text, persian_heading)
+                        else:
+                            # Regular paragraph
+                            persian_text = self._prepare_persian_text(text)
+                            
+                            # Create custom style based on paragraph formatting
+                            para_style = ParagraphStyle(
+                                'CustomPersian',
+                                parent=persian_style
+                            )
+                            
+                            # Check alignment
+                            if para.alignment:
+                                if str(para.alignment) == 'CENTER':
+                                    para_style.alignment = TA_CENTER
+                                elif str(para.alignment) == 'LEFT':
+                                    para_style.alignment = TA_LEFT
+                            
+                            pdf_para = Paragraph(persian_text, para_style)
+                        
+                        elements.append(pdf_para)
+                        elements.append(Spacer(1, 6))
                 
-                if table_data:
-                    t = Table(table_data)
-                    t.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-                        ('FONTNAME', (0, 0), (-1, -1), 'Vazir'),
-                        ('FONTSIZE', (0, 0), (-1, 0), 12),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                    ]))
-                    elements.append(t)
-                    elements.append(Spacer(1, 12))
+                elif element.tag.endswith('tbl'):
+                    # Process table
+                    table = None
+                    for t in doc.tables:
+                        if t._element == element:
+                            table = t
+                            break
+                    
+                    if table:
+                        table_data = []
+                        for row in table.rows:
+                            row_data = []
+                            for cell in row.cells:
+                                cell_text = cell.text.strip()
+                                persian_text = self._prepare_persian_text(cell_text)
+                                
+                                # Create cell paragraph with proper style
+                                cell_para = Paragraph(persian_text, persian_style)
+                                row_data.append(cell_para)
+                            
+                            if row_data:
+                                table_data.append(row_data)
+                        
+                        if table_data:
+                            # Calculate column widths based on content
+                            num_cols = len(table_data[0]) if table_data else 0
+                            col_width = (pdf_doc.width) / num_cols if num_cols > 0 else pdf_doc.width
+                            
+                            t = Table(table_data, colWidths=[col_width] * num_cols)
+                            
+                            # Apply table style
+                            table_style = TableStyle([
+                                ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+                                ('FONTNAME', (0, 0), (-1, -1), 'Vazir'),
+                                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                                ('DIRECTION', (0, 0), (-1, -1), 'RTL'),
+                            ])
+                            
+                            # Check if first row should be header
+                            if len(table_data) > 1:
+                                table_style.add('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey)
+                                table_style.add('FONTNAME', (0, 0), (-1, 0), 'Vazir-Bold')
+                            
+                            t.setStyle(table_style)
+                            elements.append(t)
+                            elements.append(Spacer(1, 12))
             
             # Build PDF
             pdf_doc.build(elements)
@@ -308,6 +461,8 @@ class DocumentProcessor:
             
         except Exception as e:
             print(f"Error generating PDF from DOCX: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
             
         finally:
