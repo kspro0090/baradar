@@ -72,7 +72,7 @@ class FontManager:
             doc = Document(docx_path)
             
             # Get default font from document styles
-            if doc.styles.default('Normal').font.name:
+            if doc.styles.default('Normal').font and doc.styles.default('Normal').font.name:
                 default_font = doc.styles.default('Normal').font.name
                 font_details['default_font'] = default_font
                 fonts_used.add(default_font)
@@ -80,7 +80,7 @@ class FontManager:
             # Extract fonts from paragraphs
             for paragraph in doc.paragraphs:
                 for run in paragraph.runs:
-                    if run.font.name:
+                    if run.font and run.font.name:
                         fonts_used.add(run.font.name)
                         font_details['paragraph_fonts'].add(run.font.name)
             
@@ -90,7 +90,7 @@ class FontManager:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
                             for run in paragraph.runs:
-                                if run.font.name:
+                                if run.font and run.font.name:
                                     fonts_used.add(run.font.name)
                                     font_details['table_fonts'].add(run.font.name)
             
@@ -99,14 +99,14 @@ class FontManager:
                 # Header
                 for paragraph in section.header.paragraphs:
                     for run in paragraph.runs:
-                        if run.font.name:
+                        if run.font and run.font.name:
                             fonts_used.add(run.font.name)
                             font_details['header_footer_fonts'].add(run.font.name)
                 
                 # Footer
                 for paragraph in section.footer.paragraphs:
                     for run in paragraph.runs:
-                        if run.font.name:
+                        if run.font and run.font.name:
                             fonts_used.add(run.font.name)
                             font_details['header_footer_fonts'].add(run.font.name)
             

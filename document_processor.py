@@ -147,10 +147,10 @@ class DocumentProcessor:
                 'bold': run.bold,
                 'italic': run.italic,
                 'underline': run.underline,
-                'font_name': run.font.name,
-                'font_size': run.font.size,
-                'font_color': run.font.color.rgb if run.font.color.rgb else None,
-                'highlight_color': run.font.highlight_color
+                'font_name': run.font.name if run.font else None,
+                'font_size': run.font.size if run.font else None,
+                'font_color': run.font.color.rgb if run.font and run.font.color and run.font.color.rgb else None,
+                'highlight_color': run.font.highlight_color if run.font else None
             })
         
         # Reconstruct the full text from runs
@@ -177,13 +177,13 @@ class DocumentProcessor:
                 run.italic = default_format['italic']
             if default_format['underline'] is not None:
                 run.underline = default_format['underline']
-            if default_format['font_name']:
+            if default_format['font_name'] and run.font:
                 run.font.name = default_format['font_name']
-            if default_format['font_size']:
+            if default_format['font_size'] and run.font:
                 run.font.size = default_format['font_size']
-            if default_format['font_color']:
+            if default_format['font_color'] and run.font and run.font.color:
                 run.font.color.rgb = default_format['font_color']
-            if default_format['highlight_color']:
+            if default_format['highlight_color'] and run.font:
                 run.font.highlight_color = default_format['highlight_color']
         else:
             # No formatting info, just add the text
@@ -370,11 +370,11 @@ class DocumentProcessor:
                         
                         # Check if paragraph has specific font
                         para_font = None
-                        if para.runs and para.runs[0].font.name:
+                        if para.runs and para.runs[0].font and para.runs[0].font.name:
                             para_font = self.font_manager.get_font_for_pdf(para.runs[0].font.name)
                         
                         # Check if it's a heading based on style
-                        if para.style.name.startswith('Heading'):
+                        if para.style and para.style.name and para.style.name.startswith('Heading'):
                             # Prepare Persian text for heading
                             persian_text = self._prepare_persian_text(text)
                             
