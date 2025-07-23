@@ -51,7 +51,7 @@
                         <div class="mb-3">
                             {{ form.document_placeholder.label(class="form-label") }}
                             {{ form.document_placeholder(class="form-control", placeholder="مثال: NAME") }}
-                            <small class="text-muted">این مقدار در قالب Word با {{NAME}} جایگزین می‌شود</small>
+                            <small class="text-muted">این مقدار در قالب Word با {{ '{{NAME}}' }} جایگزین می‌شود</small>
                         </div>
                         
                         <div class="mb-3" id="options-field" style="display: none;">
@@ -167,7 +167,7 @@ document.getElementById('detect-placeholders').addEventListener('click', functio
                         html += `
                             <div class="col-md-6 mb-2">
                                 <div class="d-flex justify-content-between align-items-center p-2 border rounded">
-                                    <code>{{${placeholder}}}</code>
+                                    <code>{% raw %}{{${placeholder}}}{% endraw %}</code>
                                     <span class="badge ${badgeClass}">${badgeText}</span>
                                 </div>
                             </div>
