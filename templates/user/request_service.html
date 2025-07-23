@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}درخواست {{ service.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="service-form-container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-file-earmark-plus"></i>
+                    فرم درخواست {{ service.name }}
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if service.description %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        {{ service.description }}
+                    </div>
+                {% endif %}
+                
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        {% for field in form if field.widget.input_type != 'hidden' %}
+                            <div class="col-md-6 mb-3">
+                                {{ field.label(class="form-label") }}
+                                {% if field.errors %}
+                                    {{ field(class="form-control is-invalid") }}
+                                    <div class="invalid-feedback">
+                                        {% for error in field.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {% if field.type == 'SelectField' %}
+                                        {{ field(class="form-select") }}
+                                    {% elif field.type == 'TextAreaField' %}
+                                        {{ field(class="form-control", rows="3") }}
+                                    {% else %}
+                                        {{ field(class="form-control") }}
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i>
+                            بازگشت
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i>
+                            ارسال درخواست
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

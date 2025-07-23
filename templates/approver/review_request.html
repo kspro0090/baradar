@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}بررسی درخواست{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">
+        <i class="bi bi-clipboard-check"></i>
+        بررسی درخواست
+    </h2>
+    
+    <div class="row">
+        <!-- Request Details -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">جزئیات درخواست</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="fw-bold">کد پیگیری:</label>
+                            <p>{{ request.tracking_code }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold">نوع خدمت:</label>
+                            <p>{{ request.service.name }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="fw-bold">تاریخ ثبت:</label>
+                            <p>{{ request.created_at.strftime('%Y/%m/%d - %H:%M') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold">وضعیت فعلی:</label>
+                            <p><span class="badge badge-pending">در انتظار بررسی</span></p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6 class="mb-3">اطلاعات فرم:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <tbody>
+                                {% for field in request.service.form_fields.order_by('field_order') %}
+                                    <tr>
+                                        <th width="30%">{{ field.field_label }}</th>
+                                        <td>{{ form_data.get(field.field_name, '-') }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Approval Form -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">تصمیم‌گیری</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.action.label(class="form-label") }}
+                            {{ form.action(class="form-select") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.note.label(class="form-label") }}
+                            {{ form.note(class="form-control", rows="4", placeholder="یادداشت اختیاری...") }}
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <small>در صورت تایید، فایل PDF بر اساس قالب تعریف شده تولید خواهد شد.</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-check2-square"></i>
+                            ثبت تصمیم
+                        </button>
+                    </form>
+                    
+                    <hr>
+                    
+                    <a href="{{ url_for('approver_dashboard') }}" class="btn btn-secondary w-100">
+                        <i class="bi bi-arrow-right"></i>
+                        بازگشت به لیست
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

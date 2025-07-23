@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}وضعیت درخواست{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="tracking-container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-info-circle"></i>
+                    وضعیت درخواست
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="fw-bold">کد پیگیری:</label>
+                        <p class="text-primary fs-5">{{ request.tracking_code }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="fw-bold">وضعیت:</label>
+                        <p>
+                            {% if request.status == 'pending' %}
+                                <span class="badge badge-pending fs-6">در انتظار بررسی</span>
+                            {% elif request.status == 'approved' %}
+                                <span class="badge badge-approved fs-6">تایید شده</span>
+                            {% elif request.status == 'rejected' %}
+                                <span class="badge badge-rejected fs-6">رد شده</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="fw-bold">نوع خدمت:</label>
+                        <p>{{ request.service.name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="fw-bold">تاریخ ثبت:</label>
+                        <p>{{ request.created_at.strftime('%Y/%m/%d - %H:%M') }}</p>
+                    </div>
+                </div>
+                
+                {% if request.approval_note %}
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-chat-left-text"></i>
+                            یادداشت مدیر:
+                        </h6>
+                        <p class="mb-0">{{ request.approval_note }}</p>
+                    </div>
+                {% endif %}
+                
+                <hr>
+                
+                <h5 class="mb-3">اطلاعات ثبت شده:</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tbody>
+                            {% for field in request.service.form_fields.order_by('field_order') %}
+                                <tr>
+                                    <th width="30%">{{ field.field_label }}</th>
+                                    <td>{{ form_data.get(field.field_name, '-') }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if request.status == 'approved' and request.pdf_filename %}
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('download_pdf', tracking_code=request.tracking_code) }}" 
+                           class="btn btn-success">
+                            <i class="bi bi-download"></i>
+                            دانلود فایل PDF
+                        </a>
+                    </div>
+                {% endif %}
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('track_request') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-right"></i>
+                        پیگیری درخواست دیگر
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

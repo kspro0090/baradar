@@ -1,0 +1,282 @@
+/* Persian/Farsi RTL Styles */
+body {
+    direction: rtl;
+    font-family: 'Vazir', 'IRANSans', 'Tahoma', sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* RTL adjustments for Bootstrap */
+.navbar-nav {
+    margin-right: auto !important;
+    margin-left: 0 !important;
+}
+
+.dropdown-menu {
+    text-align: right;
+}
+
+.form-check {
+    padding-right: 1.25rem;
+    padding-left: 0;
+}
+
+.form-check-input {
+    margin-right: -1.25rem;
+    margin-left: 0;
+}
+
+/* Custom card styles */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+}
+
+.service-card {
+    margin-bottom: 1.5rem;
+}
+
+/* Dashboard stats */
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card h3 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Form styles */
+.form-control, .form-select {
+    text-align: right;
+    border-radius: 0.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Button styles */
+.btn {
+    border-radius: 0.5rem;
+    padding: 0.5rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    border: none;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    border: none;
+}
+
+/* Table styles */
+.table {
+    text-align: right;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 700;
+    background-color: #f7fafc;
+}
+
+/* Alert styles */
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+/* Status badges */
+.badge {
+    padding: 0.375rem 0.75rem;
+    font-weight: 600;
+    border-radius: 0.375rem;
+}
+
+.badge-pending {
+    background-color: #fbbf24;
+    color: #1f2937;
+}
+
+.badge-approved {
+    background-color: #10b981;
+    color: white;
+}
+
+.badge-rejected {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Navbar styles */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+/* Footer styles */
+.footer {
+    background-color: #1f2937;
+    color: white;
+    padding: 2rem 0;
+    margin-top: 3rem;
+}
+
+/* Login form */
+.login-container {
+    max-width: 400px;
+    margin: 3rem auto;
+}
+
+.login-card {
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+/* Tracking form */
+.tracking-container {
+    max-width: 600px;
+    margin: 2rem auto;
+}
+
+/* Service request form */
+.service-form-container {
+    max-width: 800px;
+    margin: 2rem auto;
+}
+
+/* Field builder */
+.field-item {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.field-item:hover {
+    background-color: #e2e8f0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-card {
+        margin-bottom: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+
+/* Print styles for PDF */
+@media print {
+    body {
+        direction: rtl;
+        font-family: 'Vazir', 'IRANSans', 'Tahoma', sans-serif;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+}
+
+/* Loading spinner */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.3em;
+}
+
+/* File upload area */
+.file-upload-area {
+    border: 2px dashed #cbd5e0;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.file-upload-area:hover {
+    border-color: #9f7aea;
+    background-color: #faf5ff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Document preview styles */
+#preview-container .card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+
+#preview-container .card-header {
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+}
+
+#paragraphs-content {
+    font-family: 'Vazir', 'IRANSans', 'Tahoma', sans-serif;
+    line-height: 1.8;
+}
+
+#paragraphs-content p {
+    margin-bottom: 1rem;
+}
+
+#paragraphs-content mark {
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-weight: 600;
+}
+
+#placeholders-list .badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    font-family: 'Courier New', monospace;
+}

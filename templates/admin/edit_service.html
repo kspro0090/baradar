@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}ویرایش خدمت {{ service.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-pencil-square"></i>
+                        ویرایش خدمت: {{ service.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows="3") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.google_doc_id.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ form.google_doc_id(class="form-control", id="google-doc-id-input") }}
+                                <button class="btn btn-outline-secondary" type="button" onclick="previewGoogleDoc()">
+                                    <i class="bi bi-eye"></i> پیش‌نمایش
+                                </button>
+                            </div>
+                            {% if form.google_doc_id.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.google_doc_id.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                شناسه سند را از URL کپی کنید. مثال: https://docs.google.com/document/d/<strong>1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</strong>/edit
+                            </small>
+                            
+                            <!-- Document Preview Area -->
+                            <div id="preview-container" class="mt-3" style="display: none;">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-eye"></i>
+                                            پیش‌نمایش محتوای سند جدید
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="preview-loading" class="text-center" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">در حال بارگذاری...</span>
+                                            </div>
+                                            <p class="mt-2">در حال خواندن سند...</p>
+                                        </div>
+                                        
+                                        <div id="preview-error" class="alert alert-danger" style="display: none;">
+                                        </div>
+                                        
+                                        <div id="preview-content" style="display: none;">
+                                            <div id="placeholders-section" class="mb-3" style="display: none;">
+                                                <h6 class="text-muted">
+                                                    <i class="bi bi-braces"></i>
+                                                    متغیرهای یافت شده:
+                                                </h6>
+                                                <div id="placeholders-list" class="d-flex flex-wrap gap-2">
+                                                </div>
+                                            </div>
+                                            
+                                            <h6 class="text-muted">
+                                                <i class="bi bi-file-text"></i>
+                                                محتوای سند (حداکثر ۵ پاراگراف):
+                                            </h6>
+                                            <div id="paragraphs-content" class="border rounded p-3 bg-light" style="max-height: 300px; overflow-y: auto;">
+                                            </div>
+                                            
+                                            <small id="total-paragraphs" class="text-muted mt-2 d-block"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-right"></i>
+                                بازگشت
+                            </a>
+                            <div>
+                                <a href="{{ url_for('edit_service_fields', service_id=service.id) }}" class="btn btn-info me-2">
+                                    <i class="bi bi-list-task"></i>
+                                    ویرایش فیلدها
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i>
+                                    ذخیره تغییرات
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewGoogleDoc() {
+    const docIdInput = document.getElementById('google-doc-id-input');
+    const docId = docIdInput.value.trim();
+    
+    // Hide all sections initially
+    document.getElementById('preview-container').style.display = 'none';
+    document.getElementById('preview-loading').style.display = 'none';
+    document.getElementById('preview-error').style.display = 'none';
+    document.getElementById('preview-content').style.display = 'none';
+    
+    if (!docId) {
+        showError('لطفاً شناسه Google Doc را وارد کنید');
+        return;
+    }
+    
+    // Extract doc ID from URL if full URL is provided
+    let extractedId = docId;
+    const urlMatch = docId.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+    if (urlMatch) {
+        extractedId = urlMatch[1];
+        docIdInput.value = extractedId;
+    }
+    
+    // Show preview container and loading
+    document.getElementById('preview-container').style.display = 'block';
+    document.getElementById('preview-loading').style.display = 'block';
+    
+    // Send AJAX request
+    fetch(`/admin/services/preview-google-doc/${extractedId}`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('preview-loading').style.display = 'none';
+        
+        if (data.error) {
+            showError(data.error);
+        } else if (data.success) {
+            showPreview(data);
+        }
+    })
+    .catch(error => {
+        document.getElementById('preview-loading').style.display = 'none';
+        showError('خطا در ارتباط با سرور: ' + error.message);
+    });
+}
+
+// Preview on page load if doc ID exists
+document.addEventListener('DOMContentLoaded', function() {
+    const docIdInput = document.getElementById('google-doc-id-input');
+    if (docIdInput && docIdInput.value) {
+        previewGoogleDoc();
+    }
+});
+
+function showError(message) {
+    document.getElementById('preview-error').textContent = message;
+    document.getElementById('preview-error').style.display = 'block';
+}
+
+function showPreview(data) {
+    document.getElementById('preview-content').style.display = 'block';
+    
+    // Show Google Doc link if available
+    if (data.doc_url) {
+        const existingLink = document.getElementById('google-doc-link');
+        if (existingLink) {
+            existingLink.remove();
+        }
+        const docLink = document.createElement('div');
+        docLink.id = 'google-doc-link';
+        docLink.className = 'alert alert-info mb-3';
+        docLink.innerHTML = {% raw %}`<i class="bi bi-link-45deg"></i> <strong>عنوان سند:</strong> ${data.title} <a href="${data.doc_url}" target="_blank" class="btn btn-sm btn-primary float-end"><i class="bi bi-box-arrow-up-right"></i> مشاهده در Google Docs</a>`{% endraw %};
+        document.getElementById('preview-content').insertBefore(docLink, document.getElementById('placeholders-section'));
+    }
+    
+    // Show placeholders if any
+    if (data.placeholders && data.placeholders.length > 0) {
+        document.getElementById('placeholders-section').style.display = 'block';
+        const placeholdersList = document.getElementById('placeholders-list');
+        placeholdersList.innerHTML = '';
+        
+        data.placeholders.forEach(placeholder => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-primary';
+            badge.innerHTML = {% raw %}`<i class="bi bi-braces"></i> {{${placeholder}}}`{% endraw %};
+            placeholdersList.appendChild(badge);
+        });
+    } else {
+        document.getElementById('placeholders-section').style.display = 'none';
+    }
+    
+    // Show paragraphs
+    const paragraphsContent = document.getElementById('paragraphs-content');
+    paragraphsContent.innerHTML = '';
+    
+    if (data.paragraphs && data.paragraphs.length > 0) {
+        data.paragraphs.forEach((paragraph, index) => {
+            const p = document.createElement('p');
+            p.className = 'mb-2';
+            p.style.direction = 'rtl';
+            p.style.textAlign = 'right';
+            
+            // Highlight placeholders in the text
+            let text = escapeHtml(paragraph);
+            text = text.replace(/\{\{([^}]+)\}\}/g, {% raw %}'<mark class="bg-warning">{{$1}}</mark>'{% endraw %});
+            
+            p.innerHTML = text;
+            paragraphsContent.appendChild(p);
+            
+            // Add separator between paragraphs
+            if (index < data.paragraphs.length - 1) {
+                const hr = document.createElement('hr');
+                hr.className = 'my-2';
+                paragraphsContent.appendChild(hr);
+            }
+        });
+    } else {
+        paragraphsContent.innerHTML = '<p class="text-muted text-center">محتوایی یافت نشد</p>';
+    }
+    
+    // Show total paragraphs info
+    if (data.total_paragraphs > 10) {
+        document.getElementById('total-paragraphs').textContent = 
+            {% raw %}`تعداد کل پاراگراف‌ها: ${data.total_paragraphs} (نمایش ۱۰ پاراگراف اول)`{% endraw %};
+    } else {
+        document.getElementById('total-paragraphs').textContent = 
+            {% raw %}`تعداد کل پاراگراف‌ها: ${data.total_paragraphs}`{% endraw %};
+    }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+</script>
+{% endblock %}

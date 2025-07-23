@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}خدمات قابل درخواست{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="text-center mb-4">
+                <i class="bi bi-grid-3x3-gap-fill"></i>
+                خدمات قابل درخواست
+            </h1>
+            <p class="text-center text-muted mb-5">
+                یکی از خدمات زیر را انتخاب کنید و درخواست خود را ثبت نمایید
+            </p>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% if services %}
+            {% for service in services %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card service-card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-file-earmark-text"></i>
+                                {{ service.name }}
+                            </h5>
+                            {% if service.description %}
+                                <p class="card-text text-muted">{{ service.description }}</p>
+                            {% endif %}
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-info">
+                                    {{ service.form_fields.count() }} فیلد
+                                </span>
+                                <a href="{{ url_for('request_service', service_id=service.id) }}" 
+                                   class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-circle"></i>
+                                    ثبت درخواست
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i>
+                    در حال حاضر خدمتی برای درخواست وجود ندارد.
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="card-title">
+                        <i class="bi bi-search"></i>
+                        پیگیری درخواست
+                    </h5>
+                    <p class="card-text">
+                        اگر قبلاً درخواستی ثبت کرده‌اید، می‌توانید با کد پیگیری وضعیت آن را مشاهده کنید.
+                    </p>
+                    <a href="{{ url_for('track_request') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left-circle"></i>
+                        پیگیری درخواست
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

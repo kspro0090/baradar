@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}داشبورد مدیر سیستم{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">
+        <i class="bi bi-speedometer2"></i>
+        داشبورد مدیر سیستم
+    </h1>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <a href="{{ url_for('create_service') }}" class="text-decoration-none">
+                <div class="stat-card text-center">
+                    <i class="bi bi-plus-circle fs-1"></i>
+                    <h5 class="mt-2">ایجاد خدمت جدید</h5>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('create_admin') }}" class="text-decoration-none">
+                <div class="stat-card text-center">
+                    <i class="bi bi-person-plus fs-1"></i>
+                    <h5 class="mt-2">ایجاد مدیر تایید</h5>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card text-center">
+                <i class="bi bi-graph-up fs-1"></i>
+                <h3>{{ services|length }}</h3>
+                <h5>تعداد خدمات</h5>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Services List -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul"></i>
+                لیست خدمات
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if services %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>نام خدمت</th>
+                                <th>تعداد فیلدها</th>
+                                <th>وضعیت</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for service in services %}
+                                <tr>
+                                    <td>{{ service.name }}</td>
+                                    <td>{{ service.form_fields.count() }}</td>
+                                    <td>
+                                        {% if service.is_active %}
+                                            <span class="badge bg-success">فعال</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">غیرفعال</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('edit_service', service_id=service.id) }}" 
+                                           class="btn btn-sm btn-warning">
+                                            <i class="bi bi-pencil-square"></i>
+                                            ویرایش
+                                        </a>
+                                        <a href="{{ url_for('edit_service_fields', service_id=service.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="bi bi-list-task"></i>
+                                            فیلدها
+                                        </a>
+                                        <a href="{{ url_for('service_stats', service_id=service.id) }}" 
+                                           class="btn btn-sm btn-info">
+                                            <i class="bi bi-bar-chart"></i>
+                                            آمار
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted text-center">هنوز خدمتی ایجاد نشده است.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Admins List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-people"></i>
+                لیست مدیران تایید
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if admins %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>نام کاربری</th>
+                                <th>ایمیل</th>
+                                <th>تاریخ ایجاد</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for admin in admins %}
+                                <tr>
+                                    <td>{{ admin.username }}</td>
+                                    <td>{{ admin.email }}</td>
+                                    <td>{{ admin.created_at.strftime('%Y/%m/%d') }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted text-center">هنوز مدیر تاییدی ایجاد نشده است.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

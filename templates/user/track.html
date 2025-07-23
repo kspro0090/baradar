@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}پیگیری درخواست{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="tracking-container">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-search"></i>
+                    پیگیری درخواست
+                </h3>
+                
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.tracking_code.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form.tracking_code(class="form-control" + (" is-invalid" if form.tracking_code.errors else ""), placeholder="مثال: A1B2C3D4E5") }}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i>
+                                جستجو
+                            </button>
+                        </div>
+                        {% if form.tracking_code.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.tracking_code.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center text-muted">
+                    <p>کد پیگیری خود را وارد کنید تا وضعیت درخواست خود را مشاهده نمایید.</p>
+                    <p>این کد پس از ثبت درخواست به شما نمایش داده شده است.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

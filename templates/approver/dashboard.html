@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}داشبورد مدیر تایید{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">
+        <i class="bi bi-clipboard-check"></i>
+        داشبورد مدیر تایید
+    </h1>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-clock"></i>
+                درخواست‌های در انتظار بررسی
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if requests.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>کد پیگیری</th>
+                                <th>نوع خدمت</th>
+                                <th>تاریخ ثبت</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in requests.items %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ request.tracking_code }}</span>
+                                    </td>
+                                    <td>{{ request.service.name }}</td>
+                                    <td>{{ request.created_at.strftime('%Y/%m/%d - %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('review_request', request_id=request.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="bi bi-eye"></i>
+                                            بررسی
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if requests.has_prev or requests.has_next %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item {% if not requests.has_prev %}disabled{% endif %}">
+                                <a class="page-link" 
+                                   href="{{ url_for('approver_dashboard', page=requests.prev_num) if requests.has_prev else '#' }}">
+                                    قبلی
+                                </a>
+                            </li>
+                            
+                            {% for page_num in requests.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == requests.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('approver_dashboard', page=page_num) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <li class="page-item {% if not requests.has_next %}disabled{% endif %}">
+                                <a class="page-link" 
+                                   href="{{ url_for('approver_dashboard', page=requests.next_num) if requests.has_next else '#' }}">
+                                    بعدی
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+                    <p class="text-muted mt-3">در حال حاضر درخواستی برای بررسی وجود ندارد.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
