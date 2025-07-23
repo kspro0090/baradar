@@ -53,15 +53,38 @@
                             <tr>
                                 <th>نام خدمت</th>
                                 <th>تعداد فیلدها</th>
+                                <th>قالب‌ها</th>
                                 <th>وضعیت</th>
                                 <th>عملیات</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for service in services %}
+                            {% for stat_info in services_with_stats %}
+                                {% set service = stat_info.service %}
+                                {% set template_stats = stat_info.template_stats %}
                                 <tr>
                                     <td>{{ service.name }}</td>
                                     <td>{{ service.form_fields.count() }}</td>
+                                    <td>
+                                        {% if template_stats.total > 0 %}
+                                            <span class="badge bg-info">
+                                                {{ template_stats.available }} / {{ template_stats.total }}
+                                            </span>
+                                            {% if template_stats.available == 0 %}
+                                                <span class="badge bg-danger ms-1">
+                                                    <i class="bi bi-exclamation-triangle"></i>
+                                                    تمام شده
+                                                </span>
+                                            {% elif template_stats.available < 3 %}
+                                                <span class="badge bg-warning ms-1">
+                                                    <i class="bi bi-exclamation-circle"></i>
+                                                    کم
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">ندارد</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if service.is_active %}
                                             <span class="badge bg-success">فعال</span>
@@ -79,6 +102,11 @@
                                            class="btn btn-sm btn-primary">
                                             <i class="bi bi-list-task"></i>
                                             فیلدها
+                                        </a>
+                                        <a href="{{ url_for('manage_templates', service_id=service.id) }}" 
+                                           class="btn btn-sm btn-secondary">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                            قالب‌ها
                                         </a>
                                         <a href="{{ url_for('service_stats', service_id=service.id) }}" 
                                            class="btn btn-sm btn-info">

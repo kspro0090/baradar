@@ -12,7 +12,7 @@ from wtforms.validators import DataRequired, Email
 from wtforms import StringField, IntegerField, TextAreaField, SelectField
 
 from config import Config
-from models import db, User, Service, FormField, ServiceRequest
+from models import db, User, Service, FormField, ServiceRequest, TemplateFile
 from forms import (LoginForm, CreateAdminForm, ServiceForm, FormFieldForm, 
                    ServiceRequestForm, ApprovalForm, TrackingForm)
 
@@ -115,7 +115,20 @@ def admin_dashboard():
     """System manager dashboard"""
     services = Service.query.all()
     admins = User.query.filter_by(role='approval_admin').all()
-    return render_template('admin/dashboard.html', services=services, admins=admins)
+    
+    # Add template statistics for each service
+    services_with_stats = []
+    for service in services:
+        services_with_stats.append({
+            'service': service,
+            'stats': service.get_stats(),
+            'template_stats': service.get_template_stats()
+        })
+    
+    return render_template('admin/dashboard.html', 
+                         services=services, 
+                         services_with_stats=services_with_stats,
+                         admins=admins)
 
 @app.route('/admin/create-admin', methods=['GET', 'POST'])
 @login_required
@@ -265,12 +278,99 @@ def edit_service_fields(service_id):
 @login_required
 @system_manager_required
 def service_stats(service_id):
-    """View service statistics"""
+    """View detailed statistics for a service"""
     service = Service.query.get_or_404(service_id)
     stats = service.get_stats()
-    recent_requests = service.requests.order_by(ServiceRequest.created_at.desc()).limit(10).all()
-    return render_template('admin/service_stats.html', service=service, stats=stats, recent_requests=recent_requests)
+    template_stats = service.get_template_stats()
+    
+    # Get all requests for this service
+    page = request.args.get('page', 1, type=int)
+    requests = ServiceRequest.query.filter_by(service_id=service_id).order_by(
+        ServiceRequest.created_at.desc()
+    ).paginate(page=page, per_page=app.config['REQUESTS_PER_PAGE'])
+    
+    return render_template('admin/service_stats.html', 
+                         service=service, 
+                         stats=stats, 
+                         template_stats=template_stats,
+                         requests=requests)
 
+@app.route('/admin/service/<int:service_id>/templates')
+@login_required
+@system_manager_required
+def manage_templates(service_id):
+    """Manage template files for a service"""
+    service = Service.query.get_or_404(service_id)
+    templates = TemplateFile.query.filter_by(service_id=service_id).order_by(
+        TemplateFile.created_at.desc()
+    ).all()
+    
+    template_stats = service.get_template_stats()
+    
+    return render_template('admin/manage_templates.html',
+                         service=service,
+                         templates=templates,
+                         template_stats=template_stats)
+
+@app.route('/admin/service/<int:service_id>/templates/add', methods=['GET', 'POST'])
+@login_required
+@system_manager_required
+def add_template(service_id):
+    """Add a new template file to a service"""
+    from forms import TemplateUploadForm
+    
+    service = Service.query.get_or_404(service_id)
+    form = TemplateUploadForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Get file ID from form (either direct ID or Drive URL)
+            file_id = form.file_id.data
+            
+            # Extract file ID from Drive URL if needed
+            if 'drive.google.com' in file_id:
+                import re
+                match = re.search(r'/d/([a-zA-Z0-9-_]+)', file_id)
+                if match:
+                    file_id = match.group(1)
+            
+            # Create new template file record
+            template_file = TemplateFile(
+                service_id=service_id,
+                file_id=file_id,
+                file_name=form.file_name.data
+            )
+            
+            db.session.add(template_file)
+            db.session.commit()
+            
+            flash('Template file added successfully!', 'success')
+            return redirect(url_for('manage_templates', service_id=service_id))
+            
+        except Exception as e:
+            flash(f'Error adding template: {str(e)}', 'danger')
+    
+    return render_template('admin/add_template.html',
+                         service=service,
+                         form=form)
+
+@app.route('/admin/template/<int:template_id>/delete', methods=['POST'])
+@login_required
+@system_manager_required
+def delete_template(template_id):
+    """Delete a template file"""
+    template = TemplateFile.query.get_or_404(template_id)
+    service_id = template.service_id
+    
+    # Don't delete if template is already used
+    if template.used:
+        flash('Cannot delete a template that has been used!', 'danger')
+    else:
+        db.session.delete(template)
+        db.session.commit()
+        flash('Template deleted successfully!', 'success')
+    
+    return redirect(url_for('manage_templates', service_id=service_id))
 
 
 # Approval Admin Routes
@@ -283,7 +383,19 @@ def approver_dashboard():
     requests = ServiceRequest.query.filter_by(status='pending').order_by(
         ServiceRequest.created_at.desc()
     ).paginate(page=page, per_page=app.config['REQUESTS_PER_PAGE'])
-    return render_template('approver/dashboard.html', requests=requests)
+    
+    # Check template availability for each request
+    requests_with_template_info = []
+    for req in requests.items:
+        requests_with_template_info.append({
+            'request': req,
+            'has_templates': req.service.has_available_templates(),
+            'template_stats': req.service.get_template_stats()
+        })
+    
+    return render_template('approver/dashboard.html', 
+                         requests=requests,
+                         requests_with_template_info=requests_with_template_info)
 
 @app.route('/approver/request/<int:request_id>', methods=['GET', 'POST'])
 @login_required
@@ -293,20 +405,48 @@ def review_request(request_id):
     service_request = ServiceRequest.query.get_or_404(request_id)
     form = ApprovalForm()
     
+    # Check if service has available templates
+    has_templates = service_request.service.has_available_templates()
+    
     if form.validate_on_submit():
-        service_request.status = form.action.data + 'd'  # approved or rejected
-        service_request.approval_note = form.note.data
-        service_request.approved_by = current_user.id
-        
         if form.action.data == 'approve':
-            # Generate PDF
+            # Check for available templates before approving
+            if not has_templates:
+                flash('No available template files for this service. Please contact the system administrator to add more templates.', 'danger')
+                return redirect(url_for('review_request', request_id=request_id))
+            
+            # Get an available template
+            template_file = service_request.service.get_available_template()
+            if not template_file:
+                flash('No available template files for this service. Please contact the system administrator to add more templates.', 'danger')
+                return redirect(url_for('review_request', request_id=request_id))
+            
+            # Mark template as used and assign to request
+            template_file.used = True
+            template_file.used_at = datetime.utcnow()
+            service_request.template_file_id = template_file.id
+            
+            service_request.status = 'approved'
+            service_request.approval_note = form.note.data
+            service_request.approved_by = current_user.id
+            
+            # Generate PDF using the template
             try:
                 pdf_filename = generate_pdf_from_request(service_request)
                 service_request.pdf_filename = pdf_filename
                 flash('درخواست تایید شد و PDF تولید شد.', 'success')
             except Exception as e:
+                # Rollback template usage if PDF generation fails
+                template_file.used = False
+                template_file.used_at = None
+                service_request.template_file_id = None
                 flash(f'خطا در تولید PDF: {str(e)}', 'danger')
+                return redirect(url_for('review_request', request_id=request_id))
         else:
+            # Rejection
+            service_request.status = 'rejected'
+            service_request.approval_note = form.note.data
+            service_request.approved_by = current_user.id
             flash('درخواست رد شد.', 'info')
         
         db.session.commit()
@@ -315,8 +455,9 @@ def review_request(request_id):
     form_data = service_request.get_form_data()
     return render_template('approver/review_request.html', 
                          request=service_request, 
-                         form=form, 
-                         form_data=form_data)
+                         form=form,
+                         form_data=form_data,
+                         has_templates=has_templates)
 
 # Public User Routes
 @app.route('/service/<int:service_id>/request', methods=['GET', 'POST'])
@@ -433,13 +574,18 @@ def generate_pdf_from_request(service_request):
     if not google_docs_service:
         raise Exception("Google Docs service not configured")
     
-    if not service.google_doc_id:
-        raise Exception("No Google Doc template configured for this service")
+    # Use the assigned template file if available, otherwise fall back to service template
+    if service_request.template_file and service_request.template_file.file_id:
+        template_id = service_request.template_file.file_id
+    elif service.google_doc_id:
+        template_id = service.google_doc_id
+    else:
+        raise Exception("No template file assigned to this request")
     
     try:
         # Create a copy of the template document
         copy_title = f"Request_{service_request.tracking_code}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        temp_doc_id = google_docs_service.create_document_copy(service.google_doc_id, copy_title)
+        temp_doc_id = google_docs_service.create_document_copy(template_id, copy_title)
         
         # Prepare replacements mapping
         replacements = {}

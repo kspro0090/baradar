@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}افزودن قالب به {{ service.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">داشبورد</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manage_templates', service_id=service.id) }}">مدیریت قالب‌های {{ service.name }}</a></li>
+            <li class="breadcrumb-item active">افزودن قالب جدید</li>
+        </ol>
+    </nav>
+    
+    <h2 class="mb-4">
+        <i class="bi bi-plus-circle"></i>
+        افزودن قالب جدید به {{ service.name }}
+    </h2>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.file_name.label(class="form-label") }}
+                            {{ form.file_name(class="form-control") }}
+                            {% if form.file_name.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.file_name.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.file_id.label(class="form-label") }}
+                            {{ form.file_id(class="form-control") }}
+                            {% if form.file_id.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.file_id.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                می‌توانید شناسه فایل یا لینک کامل Google Drive را وارد کنید.
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i>
+                            افزودن قالب
+                        </button>
+                        <a href="{{ url_for('manage_templates', service_id=service.id) }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i>
+                            انصراف
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle"></i>
+                        راهنما
+                    </h5>
+                    <p>برای افزودن قالب جدید:</p>
+                    <ol>
+                        <li>فایل قالب را در Google Drive آپلود کنید</li>
+                        <li>دسترسی فایل را به "Anyone with the link" تنظیم کنید</li>
+                        <li>شناسه یا لینک فایل را کپی کنید</li>
+                        <li>نام دلخواه برای فایل انتخاب کنید</li>
+                        <li>اطلاعات را در فرم وارد کرده و ذخیره کنید</li>
+                    </ol>
+                    
+                    <div class="alert alert-info mt-3">
+                        <strong>نکته:</strong> هر قالب فقط یک بار قابل استفاده است. پس از استفاده در یک درخواست، آن قالب غیرفعال می‌شود.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

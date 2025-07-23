@@ -65,12 +65,27 @@
                     <h5 class="mb-0">تصمیم‌گیری</h5>
                 </div>
                 <div class="card-body">
+                    {% if not has_templates %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>توجه!</strong>
+                        <p class="mb-0 mt-2">هیچ فایل قالبی برای این سرویس موجود نیست. لطفاً با مدیر سیستم تماس بگیرید تا قالب‌های بیشتری اضافه کند.</p>
+                    </div>
+                    {% endif %}
+                    
                     <form method="POST" action="">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-3">
                             {{ form.action.label(class="form-label") }}
-                            {{ form.action(class="form-select") }}
+                            {% if has_templates %}
+                                {{ form.action(class="form-select") }}
+                            {% else %}
+                                <select class="form-select" name="action" id="action">
+                                    <option value="reject">رد</option>
+                                </select>
+                                <small class="text-muted">فقط امکان رد درخواست وجود دارد</small>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">
@@ -78,10 +93,12 @@
                             {{ form.note(class="form-control", rows="4", placeholder="یادداشت اختیاری...") }}
                         </div>
                         
+                        {% if has_templates %}
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle"></i>
                             <small>در صورت تایید، فایل PDF بر اساس قالب تعریف شده تولید خواهد شد.</small>
                         </div>
+                        {% endif %}
                         
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="bi bi-check2-square"></i>

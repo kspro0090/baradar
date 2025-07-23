@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}مدیریت قالب‌های {{ service.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">داشبورد</a></li>
+            <li class="breadcrumb-item active">مدیریت قالب‌های {{ service.name }}</li>
+        </ol>
+    </nav>
+    
+    <h2 class="mb-4">
+        <i class="bi bi-file-earmark-text"></i>
+        مدیریت قالب‌های {{ service.name }}
+    </h2>
+    
+    <!-- Template Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stat-card text-center">
+                <i class="bi bi-files fs-1"></i>
+                <h3>{{ template_stats.total }}</h3>
+                <h5>کل قالب‌ها</h5>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card text-center">
+                <i class="bi bi-check-circle fs-1 text-success"></i>
+                <h3>{{ template_stats.available }}</h3>
+                <h5>قالب‌های آماده</h5>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card text-center">
+                <i class="bi bi-x-circle fs-1 text-danger"></i>
+                <h3>{{ template_stats.used }}</h3>
+                <h5>قالب‌های استفاده شده</h5>
+            </div>
+        </div>
+    </div>
+    
+    {% if template_stats.available == 0 %}
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>هشدار!</strong> هیچ قالب آماده‌ای برای این سرویس وجود ندارد. درخواست‌های جدید قابل تایید نخواهند بود.
+    </div>
+    {% elif template_stats.available < 3 %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-circle"></i>
+        <strong>توجه!</strong> تعداد قالب‌های آماده کم است. لطفاً قالب‌های بیشتری اضافه کنید.
+    </div>
+    {% endif %}
+    
+    <!-- Add Template Button -->
+    <div class="mb-3">
+        <a href="{{ url_for('add_template', service_id=service.id) }}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i>
+            افزودن قالب جدید
+        </a>
+    </div>
+    
+    <!-- Templates List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-list"></i>
+                لیست قالب‌ها
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if templates %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>نام فایل</th>
+                                <th>شناسه Google Drive</th>
+                                <th>وضعیت</th>
+                                <th>تاریخ افزودن</th>
+                                <th>تاریخ استفاده</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for template in templates %}
+                                <tr {% if template.used %}class="table-secondary"{% endif %}>
+                                    <td>{{ template.file_name }}</td>
+                                    <td>
+                                        <code>{{ template.file_id[:20] }}...</code>
+                                        <a href="https://drive.google.com/file/d/{{ template.file_id }}/view" 
+                                           target="_blank" class="btn btn-sm btn-link">
+                                            <i class="bi bi-box-arrow-up-right"></i>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if template.used %}
+                                            <span class="badge bg-secondary">استفاده شده</span>
+                                        {% else %}
+                                            <span class="badge bg-success">آماده</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ template.created_at.strftime('%Y/%m/%d %H:%M') }}</td>
+                                    <td>
+                                        {% if template.used_at %}
+                                            {{ template.used_at.strftime('%Y/%m/%d %H:%M') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if not template.used %}
+                                            <form method="POST" action="{{ url_for('delete_template', template_id=template.id) }}" 
+                                                  style="display: inline;" 
+                                                  onsubmit="return confirm('آیا از حذف این قالب اطمینان دارید؟');">
+                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                    حذف
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted text-center">هنوز قالبی برای این سرویس اضافه نشده است.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-right"></i>
+            بازگشت به داشبورد
+        </a>
+    </div>
+</div>
+{% endblock %}
