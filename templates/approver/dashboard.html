@@ -24,39 +24,21 @@
                             <tr>
                                 <th>کد پیگیری</th>
                                 <th>نوع خدمت</th>
-                                <th>وضعیت قالب</th>
                                 <th>تاریخ ثبت</th>
                                 <th>عملیات</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for info in requests_with_template_info %}
-                                {% set request = info.request %}
-                                {% set has_templates = info.has_templates %}
-                                {% set template_stats = info.template_stats %}
-                                <tr {% if not has_templates %}class="table-warning"{% endif %}>
+                            {% for request in requests.items %}
+                                <tr>
                                     <td>
                                         <span class="badge bg-secondary">{{ request.tracking_code }}</span>
                                     </td>
                                     <td>{{ request.service.name }}</td>
-                                    <td>
-                                        {% if has_templates %}
-                                            <span class="badge bg-success">
-                                                <i class="bi bi-check-circle"></i>
-                                                {{ template_stats.available }} قالب موجود
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-danger">
-                                                <i class="bi bi-exclamation-triangle"></i>
-                                                قالبی موجود نیست
-                                            </span>
-                                        {% endif %}
-                                    </td>
                                     <td>{{ request.created_at.strftime('%Y/%m/%d - %H:%M') }}</td>
                                     <td>
                                         <a href="{{ url_for('review_request', request_id=request.id) }}" 
-                                           class="btn btn-sm btn-primary {% if not has_templates %}disabled{% endif %}"
-                                           {% if not has_templates %}title="قالبی برای این سرویس موجود نیست"{% endif %}>
+                                           class="btn btn-sm btn-primary">
                                             <i class="bi bi-eye"></i>
                                             بررسی
                                         </a>
@@ -66,13 +48,6 @@
                         </tbody>
                     </table>
                 </div>
-                
-                {% if requests_with_template_info|selectattr('has_templates', 'equalto', false)|list %}
-                <div class="alert alert-warning mt-3">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <strong>توجه:</strong> برخی درخواست‌ها به دلیل نبود قالب قابل تایید نیستند. لطفاً با مدیر سیستم تماس بگیرید.
-                </div>
-                {% endif %}
                 
                 <!-- Pagination -->
                 {% if requests.has_prev or requests.has_next %}

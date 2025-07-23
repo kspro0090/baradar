@@ -76,11 +76,3 @@ class ApprovalForm(FlaskForm):
 
 class TrackingForm(FlaskForm):
     tracking_code = StringField('کد پیگیری', validators=[DataRequired(), Length(max=20)])
-
-class TemplateUploadForm(FlaskForm):
-    file_id = StringField('شناسه فایل Google Drive یا لینک', 
-                         validators=[DataRequired()],
-                         render_kw={'placeholder': 'مثال: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms یا https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/view'})
-    file_name = StringField('نام فایل', 
-                           validators=[DataRequired(), Length(max=255)],
-                           render_kw={'placeholder': 'مثال: قالب درخواست مرخصی'})

@@ -58,25 +58,6 @@ class Service(db.Model):
             'rejected': rejected,
             'pending': pending
         }
-    
-    def has_available_templates(self):
-        """Check if service has any unused template files"""
-        return self.template_files.filter_by(used=False).count() > 0
-    
-    def get_available_template(self):
-        """Get the first available (unused) template file"""
-        return self.template_files.filter_by(used=False).first()
-    
-    def get_template_stats(self):
-        """Get statistics about template files for this service"""
-        total = self.template_files.count()
-        used = self.template_files.filter_by(used=True).count()
-        available = self.template_files.filter_by(used=False).count()
-        return {
-            'total': total,
-            'used': used,
-            'available': available
-        }
 
 class FormField(db.Model):
     __tablename__ = 'form_fields'
@@ -110,29 +91,10 @@ class ServiceRequest(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     pdf_filename = db.Column(db.String(255))
-    template_file_id = db.Column(db.Integer, db.ForeignKey('template_files.id'))  # Link to used template
-    
-    # Relationship
-    template_file = db.relationship('TemplateFile', backref='service_request')
     
     def get_form_data(self):
         return json.loads(self.form_data)
     
     def set_form_data(self, data):
         self.form_data = json.dumps(data, ensure_ascii=False)
-
-
-class TemplateFile(db.Model):
-    __tablename__ = 'template_files'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=False)
-    file_id = db.Column(db.String(255), nullable=False)  # Google Drive file ID
-    file_name = db.Column(db.String(255))  # Original file name
-    used = db.Column(db.Boolean, default=False)  # Track if template has been used
-    used_at = db.Column(db.DateTime)  # When it was used
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    service = db.relationship('Service', backref='template_files')
 

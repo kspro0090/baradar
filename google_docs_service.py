@@ -179,6 +179,48 @@ class GoogleDocsService:
         except HttpError as error:
             raise Exception(f"Error exporting document as PDF: {str(error)}")
     
+    def export_as_docx(self, doc_id):
+        """Export Google Doc as DOCX format"""
+        try:
+            request = self.drive_service.files().export_media(
+                fileId=doc_id,
+                mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            
+            file_data = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_data, request)
+            
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+            
+            file_data.seek(0)
+            return file_data.getvalue()
+            
+        except HttpError as error:
+            raise Exception(f"Error exporting document as DOCX: {str(error)}")
+    
+    def export_as_html(self, doc_id):
+        """Export Google Doc as HTML format"""
+        try:
+            request = self.drive_service.files().export_media(
+                fileId=doc_id,
+                mimeType='text/html'
+            )
+            
+            file_data = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_data, request)
+            
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+            
+            file_data.seek(0)
+            return file_data.getvalue()
+            
+        except HttpError as error:
+            raise Exception(f"Error exporting document as HTML: {str(error)}")
+    
     def delete_document(self, doc_id):
         """Delete a Google Doc (cleanup temporary copies)"""
         try:
