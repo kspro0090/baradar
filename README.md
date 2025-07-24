@@ -1,178 +1,177 @@
-# سیستم درخواست خدمات فارسی
-# Persian Service Request System
+# Google Docs Font Manager
 
-یک سیستم وب‌ Flask برای مدیریت درخواست‌های خدمات با رابط کاربری فارسی و پشتیبانی از RTL.
+A comprehensive font management system for analyzing Google Docs files and managing font availability in your document processing system.
 
-## ویژگی‌ها
+## Features
 
-- رابط کاربری کاملاً فارسی با پشتیبانی RTL
-- سیستم احراز هویت برای مدیران
-- ایجاد فرم‌های پویا برای خدمات مختلف
-- سیستم پیگیری درخواست‌ها
-- تولید PDF از درخواست‌های تایید شده
-- **جدید**: یکپارچه‌سازی با Google Docs برای مدیریت قالب‌ها
-- **جدید**: پیش‌نمایش زنده محتوای Google Docs
-- حفظ فرمت و RTL در PDF های تولید شده
+- **Document Font Analysis**: Analyze Google Docs to identify all fonts used
+- **Font Availability Checking**: Check which fonts are available in your system
+- **Font Management**: Add, remove, and upload font files
+- **Web Interface**: Modern, responsive UI for easy management
+- **REST API**: Full API for integration with other systems
 
-## نصب و راه‌اندازی
+## Components
 
-### 1. نصب وابستگی‌ها
+### 1. Core Font Manager (`font_manager.py`)
+The main logic for font analysis and management:
+- Font availability checking
+- Document font analysis
+- Report generation
+- Support for case-insensitive font matching
 
-```bash
-cd project
-pip install -r requirements.txt
-```
+### 2. REST API (`font_manager_api.py`)
+Flask-based API with endpoints:
+- `POST /api/fonts/analyze` - Analyze document fonts
+- `GET /api/fonts/available` - List available fonts
+- `POST /api/fonts/add` - Add a font to the system
+- `POST /api/fonts/upload` - Upload font files
+- `DELETE /api/fonts/remove` - Remove a font
+- `GET /api/health` - Health check
 
-### 2. راه‌اندازی پایگاه داده
+### 3. Web Interface (`index.html`)
+Modern, responsive web interface featuring:
+- Document analysis form
+- Real-time font availability display
+- Font upload functionality
+- System font management
 
-```bash
-# روش 1: اجرای مستقیم برنامه (کاربر admin به صورت خودکار ایجاد می‌شود)
-python app.py
+## Installation
 
-# روش 2: استفاده از دستور Flask CLI
-flask --app app.py init-db
-```
-
-### 3. پیکربندی Google Docs
-
-```bash
-# کپی فایل نمونه
-cp credentials.json.example credentials.json
-# فایل credentials.json را با اطلاعات واقعی service account پر کنید
-```
-
-برای راهنمای کامل به فایل `GOOGLE_DOCS_SETUP.md` مراجعه کنید.
-
-### 4. اطلاعات ورود پیش‌فرض
-
-- **نام کاربری**: admin
-- **رمز عبور**: admin123
-
-### 5. اجرای برنامه
-
-```bash
-python app.py
-```
-
-برنامه در آدرس http://localhost:5000 قابل دسترسی خواهد بود.
-
-## ساختار پروژه
-
-```
-project/
-├── app.py                 # فایل اصلی برنامه
-├── models.py              # مدل‌های پایگاه داده
-├── forms.py               # فرم‌های WTForms
-├── config.py              # تنظیمات برنامه
-├── requirements.txt       # وابستگی‌های Python
-├── test_app.py           # اسکریپت تست
-├── static/
-│   ├── css/
-│   │   └── style.css     # استایل‌های سفارشی
-│   └── fonts/            # فونت‌های فارسی
-├── templates/
-│   ├── base.html         # قالب پایه
-│   ├── login.html        # صفحه ورود
-│   ├── admin/            # قالب‌های مدیر سیستم
-│   ├── approver/         # قالب‌های مدیر تایید
-│   ├── user/             # قالب‌های کاربر عادی
-│   └── errors/           # صفحات خطا
-├── uploads/
-│   ├── docx_templates/   # قالب‌های Word
-│   └── user_requests/    # درخواست‌های کاربران
-└── pdf_outputs/          # فایل‌های PDF تولید شده
-```
-
-## نحوه استفاده
-
-### برای مدیر سیستم:
-
-1. با اطلاعات admin وارد شوید
-2. از داشبورد مدیر می‌توانید:
-   - خدمات جدید ایجاد کنید
-   - فیلدهای فرم را تعریف کنید
-   - مدیران تایید جدید ایجاد کنید
-   - فونت‌های فارسی آپلود کنید
-   - آمار خدمات را مشاهده کنید
-
-#### پیش‌نمایش قالب Word:
-هنگام ایجاد یا ویرایش خدمت، با انتخاب فایل Word:
-- محتوای سند (تا ۵ پاراگراف) نمایش داده می‌شود
-- متغیرهای موجود (مثل {{NAME}}) شناسایی و نمایش داده می‌شوند
-- متن فارسی با جهت RTL صحیح نمایش داده می‌شود
-- بدون نیاز به ذخیره فرم، پیش‌نمایش به صورت آنی انجام می‌شود
-
-### برای کاربران عادی:
-
-1. از صفحه اصلی، خدمت مورد نظر را انتخاب کنید
-2. فرم درخواست را پر کنید
-3. کد پیگیری دریافت کنید
-4. با کد پیگیری، وضعیت درخواست خود را بررسی کنید
-5. پس از تایید، فایل PDF را دانلود کنید
-
-### برای مدیران تایید:
-
-1. با اطلاعات کاربری خود وارد شوید
-2. درخواست‌های در انتظار را بررسی کنید
-3. درخواست‌ها را تایید یا رد کنید
-
-## تست سیستم
-
-برای تست صحت عملکرد سیستم:
-
-```bash
-python test_app.py
-```
-
-## نکات مهم
-
-1. **فونت‌های فارسی**: برای تولید صحیح PDF فارسی، حتماً یک فونت فارسی (TTF یا OTF) آپلود کنید و آن را به عنوان پیش‌فرض انتخاب کنید.
-
-2. **قالب‌های Word**: در قالب‌های Word، از placeholder هایی مثل `{{NAME}}` استفاده کنید که با مقادیر فرم جایگزین می‌شوند.
-
-3. **امنیت**: در محیط production، حتماً:
-   - SECRET_KEY را تغییر دهید
-   - از HTTPS استفاده کنید
-   - رمز عبور admin را تغییر دهید
-
-## رفع مشکلات رایج
-
-### مشکل: نمی‌توانم با admin/admin123 وارد شوم
-```bash
-flask --app app.py init-db
-```
-
-### مشکل: خطای Jinja2 در قالب‌ها
-مطمئن شوید که از `{{ variable }}` استفاده می‌کنید، نه `{{{{ variable }}}}`
-
-### مشکل: PDF فارسی به درستی نمایش داده نمی‌شود (مربع‌های سیاه)
-
-این مشکل به دلیل عدم وجود فونت فارسی مناسب است. برای رفع آن:
-
-#### روش سریع: استفاده از فونت نمونه
-```bash
-python3 add_sample_font.py
-```
-این دستور فونت Vazir را دانلود و به عنوان فونت پیش‌فرض تنظیم می‌کند.
-
-#### روش دستی: آپلود فونت از پنل مدیریت
-1. وارد پنل مدیر سیستم شوید
-2. به بخش "مدیریت فونت‌ها" بروید
-3. یک فونت فارسی (TTF یا OTF) آپلود کنید
-4. گزینه "فونت پیش‌فرض" را تیک بزنید
-5. ذخیره کنید
-
-#### تست عملکرد PDF
-```bash
-python3 test_pdf_generation.py
-```
-این دستور یک PDF تست با متن فارسی تولید می‌کند.
-
-### مشکل: خطای import در اجرای برنامه
+1. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## مجوز
+2. Create the fonts directory:
+```bash
+mkdir fonts
+```
 
-این پروژه تحت مجوز MIT منتشر شده است.
+## Usage
+
+### Running the API Server
+
+```bash
+python font_manager_api.py
+```
+
+The API will start on `http://localhost:5000`
+
+### Using the Web Interface
+
+1. Open `index.html` in a web browser
+2. Make sure the API server is running
+3. Use the interface to:
+   - Analyze documents by providing Google Docs ID and fonts list
+   - Manage system fonts
+   - Upload font files
+
+### Using the Command Line
+
+```bash
+python font_manager.py
+```
+
+This will run example demonstrations of the font management system.
+
+## API Examples
+
+### Analyze Document Fonts
+```bash
+curl -X POST http://localhost:5000/api/fonts/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "doc_id": "1AbCDefgHiJKLmnopQRsTuv",
+    "fonts": ["IRANSans", "B Nazanin", "Roboto"]
+  }'
+```
+
+### Add a Font
+```bash
+curl -X POST http://localhost:5000/api/fonts/add \
+  -H "Content-Type: application/json" \
+  -d '{"font_name": "B Nazanin"}'
+```
+
+### Upload Font File
+```bash
+curl -X POST http://localhost:5000/api/fonts/upload \
+  -F "file=@BNazanin.ttf" \
+  -F "font_name=B Nazanin"
+```
+
+## Output Format
+
+When analyzing a document, the system provides:
+
+```
+Fonts used in the document:
+- IRANSans ✅ Available
+- B Nazanin ❌ Not available (Please upload the .ttf or .woff file)
+- Roboto ✅ Available
+
+1 font(s) missing. Please upload the required font files before processing.
+```
+
+Or if all fonts are available:
+
+```
+Fonts used in the document:
+- Arial ✅ Available
+- Roboto ✅ Available
+
+All fonts used in the document are available. Ready to proceed with document processing.
+```
+
+## Configuration
+
+### Available Fonts
+The system stores available fonts in `available_fonts.json`:
+```json
+{
+  "fonts": ["Arial", "Roboto", "Times New Roman", "IRANSans"]
+}
+```
+
+### Font Files
+Uploaded font files are stored in the `fonts/` directory with supported formats:
+- `.ttf` (TrueType Font)
+- `.woff` (Web Open Font Format)
+- `.woff2` (Web Open Font Format 2)
+- `.otf` (OpenType Font)
+
+## Integration Notes
+
+### Google Docs API
+The current implementation includes a placeholder for Google Docs API integration. To fully integrate:
+
+1. Set up Google Cloud Project
+2. Enable Google Docs API
+3. Obtain credentials
+4. Update `GoogleDocsParser.parse_document_fonts()` to:
+   - Authenticate with Google
+   - Fetch document content
+   - Extract font families from styles
+
+### Frontend Integration
+The web interface can be integrated into existing systems by:
+- Adjusting the API base URL in the JavaScript
+- Customizing the styling to match your design system
+- Adding authentication if needed
+
+## Error Handling
+
+The system includes comprehensive error handling:
+- Invalid font files are rejected
+- Duplicate fonts are prevented
+- Missing parameters return appropriate error messages
+- All errors are returned with HTTP status codes and descriptive messages
+
+## Future Enhancements
+
+- Direct Google Docs API integration
+- Batch document analysis
+- Font similarity detection
+- Font substitution suggestions
+- Font preview functionality
+- Export/import font configurations
