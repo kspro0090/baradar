@@ -98,52 +98,7 @@
                             </div>
                         </div>
                         
-                        <!-- Auto-approval settings -->
-                        <div class="card border-warning mb-3">
-                            <div class="card-header bg-warning bg-opacity-10">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-check2-circle"></i>
-                                    تنظیمات تأیید خودکار
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <div class="form-check">
-                                        {{ form.auto_approve_enabled(class="form-check-input", id="auto-approve-checkbox") }}
-                                        {{ form.auto_approve_enabled.label(class="form-check-label", for="auto-approve-checkbox") }}
-                                    </div>
-                                    <small class="text-muted">
-                                        با فعال کردن این گزینه، درخواست‌هایی که نام کاربر آنها در لیست پرسنل Google Sheet باشد، به صورت خودکار تأیید می‌شوند.
-                                    </small>
-                                </div>
-                                
-                                <div id="auto-approve-settings" style="display: none;">
-                                    <div class="row">
-                                        <div class="col-md-8 mb-3">
-                                            {{ form.auto_approve_sheet_id.label(class="form-label") }}
-                                            {{ form.auto_approve_sheet_id(class="form-control") }}
-                                            <small class="text-muted">
-                                                اگر خالی باشد، از شناسه پیش‌فرض استفاده می‌شود
-                                            </small>
-                                        </div>
-                                        
-                                        <div class="col-md-4 mb-3">
-                                            {{ form.auto_approve_sheet_column.label(class="form-label") }}
-                                            {{ form.auto_approve_sheet_column(class="form-control", maxlength="10") }}
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        {{ form.auto_approve_field_name.label(class="form-label") }}
-                                        {{ form.auto_approve_field_name(class="form-control", id="field-name-select", disabled="disabled") }}
-                                        <small class="text-muted">
-                                            این فیلد پس از تعریف فیلدهای فرم قابل انتخاب خواهد بود
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
+
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
                             <strong>توجه:</strong> پس از ایجاد خدمت، به صفحه تعریف فیلدها هدایت خواهید شد.
@@ -171,12 +126,6 @@
 
 {% block extra_js %}
 <script>
-// Toggle auto-approval settings
-document.getElementById('auto-approve-checkbox').addEventListener('change', function() {
-    const settings = document.getElementById('auto-approve-settings');
-    settings.style.display = this.checked ? 'block' : 'none';
-});
-
 function previewGoogleDoc() {
     const docIdInput = document.getElementById('google-doc-id-input');
     const docId = docIdInput.value.trim();

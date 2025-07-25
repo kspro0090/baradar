@@ -47,15 +47,6 @@ class ServiceForm(FlaskForm):
     description = TextAreaField('توضیحات')
     google_doc_id = StringField('شناسه Google Docs', validators=[DataRequired()], 
                                render_kw={'placeholder': 'مثال: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'})
-    
-    # Auto-approval settings
-    auto_approve_enabled = BooleanField('تأیید خودکار بر اساس لیست پرسنل (Google Sheet)')
-    auto_approve_sheet_id = StringField('شناسه Google Sheet', 
-                                       render_kw={'placeholder': 'پیش‌فرض: 1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ'})
-    auto_approve_sheet_column = StringField('ستون هدف', validators=[Length(max=10)],
-                                          render_kw={'placeholder': 'پیش‌فرض: A'})
-    auto_approve_field_name = SelectField('فیلد مورد بررسی', choices=[], 
-                                        render_kw={'placeholder': 'فیلدی که با Google Sheet مقایسه می‌شود'})
 
 class FormFieldForm(FlaskForm):
     field_label = StringField('برچسب فیلد', validators=[DataRequired()])
@@ -85,3 +76,12 @@ class ApprovalForm(FlaskForm):
 
 class TrackingForm(FlaskForm):
     tracking_code = StringField('کد پیگیری', validators=[DataRequired(), Length(max=20)])
+
+class AutoApprovalSettingsForm(FlaskForm):
+    auto_approve_enabled = BooleanField('تأیید خودکار بر اساس لیست پرسنل (Google Sheet)')
+    auto_approve_sheet_id = StringField('شناسه Google Sheet', 
+                                       render_kw={'placeholder': 'پیش‌فرض: 1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ'})
+    auto_approve_sheet_column = StringField('ستون هدف', validators=[Length(max=10)],
+                                          render_kw={'placeholder': 'پیش‌فرض: A'})
+    auto_approve_field_name = SelectField('فیلد مورد بررسی', choices=[], 
+                                        render_kw={'placeholder': 'فیلدی که با Google Sheet مقایسه می‌شود'})

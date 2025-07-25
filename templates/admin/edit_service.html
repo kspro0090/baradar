@@ -98,59 +98,7 @@
                             </div>
                         </div>
                         
-                        <!-- Auto-approval settings -->
-                        <div class="card border-warning mb-3">
-                            <div class="card-header bg-warning bg-opacity-10">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-check2-circle"></i>
-                                    تنظیمات تأیید خودکار
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <div class="form-check">
-                                        {{ form.auto_approve_enabled(class="form-check-input", id="auto-approve-checkbox") }}
-                                        {{ form.auto_approve_enabled.label(class="form-check-label", for="auto-approve-checkbox") }}
-                                    </div>
-                                    <small class="text-muted">
-                                        با فعال کردن این گزینه، درخواست‌هایی که نام کاربر آنها در لیست پرسنل Google Sheet باشد، به صورت خودکار تأیید می‌شوند.
-                                    </small>
-                                </div>
-                                
-                                <div id="auto-approve-settings" style="{% if not service.auto_approve_enabled %}display: none;{% endif %}">
-                                    <div class="row">
-                                        <div class="col-md-8 mb-3">
-                                            {{ form.auto_approve_sheet_id.label(class="form-label") }}
-                                            {{ form.auto_approve_sheet_id(class="form-control") }}
-                                            <small class="text-muted">
-                                                اگر خالی باشد، از شناسه پیش‌فرض استفاده می‌شود
-                                            </small>
-                                        </div>
-                                        
-                                        <div class="col-md-4 mb-3">
-                                            {{ form.auto_approve_sheet_column.label(class="form-label") }}
-                                            {{ form.auto_approve_sheet_column(class="form-control", maxlength="10") }}
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        {{ form.auto_approve_field_name.label(class="form-label") }}
-                                        <select name="auto_approve_field_name" id="field-name-select" class="form-control">
-                                            <option value="">-- انتخاب کنید --</option>
-                                            {% for field in service.form_fields %}
-                                                <option value="{{ field.field_name }}" {% if field.field_name == service.auto_approve_field_name %}selected{% endif %}>
-                                                    {{ field.field_label }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                        <small class="text-muted">
-                                            فیلدی که با لیست پرسنل در Google Sheet مقایسه می‌شود
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
+
                         <hr>
                         
                         <div class="d-flex justify-content-between">
@@ -179,11 +127,6 @@
 
 {% block extra_js %}
 <script>
-// Toggle auto-approval settings
-document.getElementById('auto-approve-checkbox').addEventListener('change', function() {
-    const settings = document.getElementById('auto-approve-settings');
-    settings.style.display = this.checked ? 'block' : 'none';
-});
 function previewGoogleDoc() {
     const docIdInput = document.getElementById('google-doc-id-input');
     const docId = docIdInput.value.trim();

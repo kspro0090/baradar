@@ -160,11 +160,7 @@ def create_service():
             name=form.name.data,
             description=form.description.data,
             google_doc_id=form.google_doc_id.data,
-            created_by=current_user.id,
-            auto_approve_enabled=form.auto_approve_enabled.data,
-            auto_approve_sheet_id=form.auto_approve_sheet_id.data or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ",
-            auto_approve_sheet_column=form.auto_approve_sheet_column.data or "A",
-            auto_approve_field_name=form.auto_approve_field_name.data
+            created_by=current_user.id
         )
         
         db.session.add(service)
@@ -226,10 +222,6 @@ def edit_service(service_id):
         service.name = form.name.data
         service.description = form.description.data
         service.google_doc_id = form.google_doc_id.data
-        service.auto_approve_enabled = form.auto_approve_enabled.data
-        service.auto_approve_sheet_id = form.auto_approve_sheet_id.data or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ"
-        service.auto_approve_sheet_column = form.auto_approve_sheet_column.data or "A"
-        service.auto_approve_field_name = form.auto_approve_field_name.data
         
         db.session.commit()
         flash('خدمت با موفقیت به‌روزرسانی شد.', 'success')
@@ -245,7 +237,30 @@ def edit_service_fields(service_id):
     service = Service.query.get_or_404(service_id)
     form = FormFieldForm()
     
-    if form.validate_on_submit():
+    # Auto-approval settings form
+    from forms import AutoApprovalSettingsForm
+    auto_approval_form = AutoApprovalSettingsForm()
+    
+    # Populate field choices for auto-approval
+    field_choices = [('', '-- انتخاب کنید --')]
+    for field in service.form_fields:
+        field_choices.append((field.field_name, field.field_label))
+    auto_approval_form.auto_approve_field_name.choices = field_choices
+    
+    # Handle auto-approval form submission
+    if request.method == 'POST' and 'save_auto_approval' in request.form:
+        if auto_approval_form.validate():
+            service.auto_approve_enabled = auto_approval_form.auto_approve_enabled.data
+            service.auto_approve_sheet_id = auto_approval_form.auto_approve_sheet_id.data or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ"
+            service.auto_approve_sheet_column = auto_approval_form.auto_approve_sheet_column.data or "A"
+            service.auto_approve_field_name = auto_approval_form.auto_approve_field_name.data
+            
+            db.session.commit()
+            flash('تنظیمات تأیید خودکار ذخیره شد.', 'success')
+            return redirect(url_for('edit_service_fields', service_id=service.id))
+    
+    # Handle field form submission
+    if form.validate_on_submit() and 'save_auto_approval' not in request.form:
         field = FormField(
             service_id=service.id,
             field_name=form.field_name.data,
@@ -266,8 +281,19 @@ def edit_service_fields(service_id):
         flash('فیلد جدید اضافه شد.', 'success')
         return redirect(url_for('edit_service_fields', service_id=service.id))
     
+    # Pre-populate auto-approval form with current values
+    if request.method == 'GET':
+        auto_approval_form.auto_approve_enabled.data = service.auto_approve_enabled
+        auto_approval_form.auto_approve_sheet_id.data = service.auto_approve_sheet_id
+        auto_approval_form.auto_approve_sheet_column.data = service.auto_approve_sheet_column
+        auto_approval_form.auto_approve_field_name.data = service.auto_approve_field_name
+    
     fields = service.form_fields.order_by(FormField.field_order).all()
-    return render_template('admin/edit_fields.html', service=service, form=form, fields=fields)
+    return render_template('admin/edit_fields.html', 
+                         service=service, 
+                         form=form, 
+                         fields=fields,
+                         auto_approval_form=auto_approval_form)
 
 @app.route('/admin/services/<int:service_id>/stats')
 @login_required
