@@ -299,12 +299,40 @@ def review_request(request_id):
         service_request.approved_by = current_user.id
         
         if form.action.data == 'approve':
-            # Generate PDF
+            # Generate PDF using new method without copying
             try:
-                pdf_filename = generate_pdf_from_request(service_request)
-                service_request.pdf_filename = pdf_filename
-                flash('درخواست تایید شد و PDF تولید شد.', 'success')
+                # First try the no-copy method
+                from pdf_generator_no_copy import generate_pdf_from_request_no_copy, generate_pdf_fallback
+                
+                pdf_filename = None
+                
+                # Try Google Docs API without copy
+                if google_docs_service:
+                    try:
+                        pdf_filename = generate_pdf_from_request_no_copy(service_request)
+                        if pdf_filename:
+                            app.logger.info(f"PDF generated using no-copy method: {pdf_filename}")
+                    except Exception as e:
+                        app.logger.warning(f"No-copy method failed: {str(e)}")
+                
+                # If no-copy method failed, try fallback with ReportLab
+                if not pdf_filename:
+                    app.logger.info("Trying fallback PDF generation with ReportLab")
+                    pdf_filename = generate_pdf_fallback(service_request)
+                
+                # If all else fails, use the old method (last resort)
+                if not pdf_filename:
+                    app.logger.warning("Using old copy method as last resort")
+                    pdf_filename = generate_pdf_from_request(service_request)
+                
+                if pdf_filename:
+                    service_request.pdf_filename = pdf_filename
+                    flash('درخواست تایید شد و PDF تولید شد.', 'success')
+                else:
+                    flash('درخواست تایید شد اما تولید PDF با خطا مواجه شد.', 'warning')
+                    
             except Exception as e:
+                app.logger.error(f'Error generating PDF: {str(e)}')
                 flash(f'خطا در تولید PDF: {str(e)}', 'danger')
         else:
             flash('درخواست رد شد.', 'info')
