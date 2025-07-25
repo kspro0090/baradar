@@ -160,7 +160,11 @@ def create_service():
             name=form.name.data,
             description=form.description.data,
             google_doc_id=form.google_doc_id.data,
-            created_by=current_user.id
+            created_by=current_user.id,
+            auto_approve_enabled=form.auto_approve_enabled.data,
+            auto_approve_sheet_id=form.auto_approve_sheet_id.data or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ",
+            auto_approve_sheet_column=form.auto_approve_sheet_column.data or "A",
+            auto_approve_field_name=form.auto_approve_field_name.data
         )
         
         db.session.add(service)
@@ -222,6 +226,10 @@ def edit_service(service_id):
         service.name = form.name.data
         service.description = form.description.data
         service.google_doc_id = form.google_doc_id.data
+        service.auto_approve_enabled = form.auto_approve_enabled.data
+        service.auto_approve_sheet_id = form.auto_approve_sheet_id.data or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ"
+        service.auto_approve_sheet_column = form.auto_approve_sheet_column.data or "A"
+        service.auto_approve_field_name = form.auto_approve_field_name.data
         
         db.session.commit()
         flash('خدمت با موفقیت به‌روزرسانی شد.', 'success')
@@ -299,43 +307,29 @@ def review_request(request_id):
         service_request.approved_by = current_user.id
         
         if form.action.data == 'approve':
-            # Generate PDF using Google Docs export with temporary replacements
+            # Generate PDF using queue system
             try:
-                from google_docs_pdf_generator import generate_pdf_for_service_request
+                from pdf_queue_processor import add_pdf_task, wait_for_task, ProcessingStatus
                 
-                pdf_filename = None
+                # Add PDF generation to queue
+                task_id = add_pdf_task(service_request)
+                app.logger.info(f"Added PDF task {task_id} to queue for manual approval")
                 
-                # Try the new Google Docs PDF generator
-                if google_docs_service:
-                    try:
-                        pdf_filename = generate_pdf_for_service_request(service_request)
-                        if pdf_filename:
-                            app.logger.info(f"PDF generated using Google Docs export: {pdf_filename}")
-                    except Exception as e:
-                        app.logger.warning(f"Google Docs PDF generation failed: {str(e)}")
+                # Wait for task completion (with timeout)
+                task = wait_for_task(task_id, timeout=30)
                 
-                # If Google Docs method failed, try ReportLab fallback
-                if not pdf_filename:
-                    try:
-                        from pdf_generator_no_copy import generate_pdf_fallback
-                        app.logger.info("Trying fallback PDF generation with ReportLab")
-                        pdf_filename = generate_pdf_fallback(service_request)
-                    except Exception as e:
-                        app.logger.warning(f"ReportLab fallback failed: {str(e)}")
-                
-                # If all else fails, use the old method (last resort)
-                if not pdf_filename:
-                    app.logger.warning("Using old copy method as last resort")
-                    pdf_filename = generate_pdf_from_request(service_request)
-                
-                if pdf_filename:
-                    service_request.pdf_filename = pdf_filename
-                    flash('درخواست تایید شد و PDF تولید شد.', 'success')
+                if task:
+                    if task.status == ProcessingStatus.COMPLETED:
+                        service_request.pdf_filename = task.result
+                        db.session.commit()
+                        flash('درخواست تایید شد و PDF تولید شد.', 'success')
+                    else:
+                        flash(f'درخواست تایید شد اما تولید PDF با خطا مواجه شد: {task.error}', 'warning')
                 else:
-                    flash('درخواست تایید شد اما تولید PDF با خطا مواجه شد.', 'warning')
+                    flash('درخواست تایید شد. PDF در صف تولید قرار گرفت.', 'info')
                     
             except Exception as e:
-                app.logger.error(f'Error generating PDF: {str(e)}')
+                app.logger.error(f'Error adding PDF to queue: {str(e)}')
                 flash(f'خطا در تولید PDF: {str(e)}', 'danger')
         else:
             flash('درخواست رد شد.', 'info')
@@ -410,6 +404,50 @@ def request_service(service_id):
         
         db.session.add(service_request)
         db.session.commit()
+        
+        # Check for auto-approval
+        if service.auto_approve_enabled and service.auto_approve_field_name:
+            try:
+                from google_sheets_checker import check_employee_in_sheet
+                from pdf_queue_processor import add_pdf_task, wait_for_task, ProcessingStatus
+                
+                # Get the value to check
+                check_value = form_data.get(service.auto_approve_field_name, '')
+                
+                if check_value:
+                    # Check if value exists in Google Sheet
+                    sheet_id = service.auto_approve_sheet_id or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ"
+                    column = service.auto_approve_sheet_column or "A"
+                    
+                    if check_employee_in_sheet(check_value, sheet_id, column):
+                        app.logger.info(f"Auto-approving request {service_request.tracking_code} for {check_value}")
+                        
+                        # Auto-approve the request
+                        service_request.status = 'approved'
+                        service_request.approval_note = 'تأیید خودکار بر اساس لیست پرسنل'
+                        db.session.commit()
+                        
+                        # Add PDF generation to queue
+                        def on_pdf_complete(task):
+                            """Callback when PDF is generated"""
+                            if task.status == ProcessingStatus.COMPLETED:
+                                service_request.pdf_filename = task.result
+                                db.session.commit()
+                                app.logger.info(f"PDF generated for auto-approved request: {task.result}")
+                            else:
+                                app.logger.error(f"PDF generation failed for auto-approved request: {task.error}")
+                        
+                        task_id = add_pdf_task(service_request, callback=on_pdf_complete)
+                        app.logger.info(f"Added PDF task {task_id} to queue")
+                        
+                        flash(f'درخواست شما با کد پیگیری {service_request.tracking_code} به صورت خودکار تأیید شد. PDF در حال آماده‌سازی است.', 'success')
+                        return redirect(url_for('track_request', tracking_code=service_request.tracking_code))
+                    else:
+                        app.logger.info(f"Value '{check_value}' not found in sheet, proceeding with manual approval")
+                        
+            except Exception as e:
+                app.logger.error(f"Error in auto-approval check: {str(e)}")
+                # Continue with normal flow if auto-approval fails
         
         flash(f'درخواست شما با کد پیگیری {service_request.tracking_code} ثبت شد.', 'success')
         return redirect(url_for('track_request', tracking_code=service_request.tracking_code))

@@ -43,6 +43,12 @@ class Service(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     
+    # Auto-approval settings
+    auto_approve_enabled = db.Column(db.Boolean, default=False)
+    auto_approve_sheet_id = db.Column(db.String(255), default="1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ")
+    auto_approve_sheet_column = db.Column(db.String(10), default="A")
+    auto_approve_field_name = db.Column(db.String(100))  # Which field to check (e.g., 'employee_name')
+    
     # Relationships
     form_fields = db.relationship('FormField', backref='service', lazy='dynamic', cascade='all, delete-orphan')
     requests = db.relationship('ServiceRequest', backref='service', lazy='dynamic', cascade='all, delete-orphan')
