@@ -39,6 +39,11 @@ class Service(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     google_doc_id = db.Column(db.String(255))  # Google Docs file ID
+    # New fields for image-based forms
+    form_type = db.Column(db.String(20), default='google_doc')  # 'google_doc' or 'image'
+    image_path = db.Column(db.String(500))  # Path to uploaded image
+    form_design_data = db.Column(db.Text)  # JSON data for form design (textboxes, fonts, positions)
+    page_size = db.Column(db.String(10), default='A4')  # A4, A5, or 'original'
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
@@ -52,6 +57,16 @@ class Service(db.Model):
     # Relationships
     form_fields = db.relationship('FormField', backref='service', lazy='dynamic', cascade='all, delete-orphan')
     requests = db.relationship('ServiceRequest', backref='service', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def get_form_design_data(self):
+        """Get form design data as dictionary"""
+        if self.form_design_data:
+            return json.loads(self.form_design_data)
+        return {}
+    
+    def set_form_design_data(self, data):
+        """Set form design data from dictionary"""
+        self.form_design_data = json.dumps(data, ensure_ascii=False)
     
     def get_stats(self):
         total = self.requests.count()

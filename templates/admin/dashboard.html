@@ -52,6 +52,7 @@
                         <thead>
                             <tr>
                                 <th>نام خدمت</th>
+                                <th>نوع فرم</th>
                                 <th>تعداد فیلدها</th>
                                 <th>وضعیت</th>
                                 <th>عملیات</th>
@@ -61,6 +62,24 @@
                             {% for service in services %}
                                 <tr>
                                     <td>{{ service.name }}</td>
+                                    <td>
+                                        {% if service.form_type == 'google_doc' %}
+                                            <span class="badge bg-primary">
+                                                <i class="bi bi-file-earmark-text"></i>
+                                                Google Docs
+                                            </span>
+                                        {% elif service.form_type == 'image' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-image"></i>
+                                                تصویر
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="bi bi-question-circle"></i>
+                                                نامشخص
+                                            </span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ service.form_fields.count() }}</td>
                                     <td>
                                         {% if service.is_active %}
@@ -75,11 +94,24 @@
                                             <i class="bi bi-pencil-square"></i>
                                             ویرایش
                                         </a>
-                                        <a href="{{ url_for('edit_service_fields', service_id=service.id) }}" 
-                                           class="btn btn-sm btn-primary">
-                                            <i class="bi bi-list-task"></i>
-                                            فیلدها
-                                        </a>
+                                        {% if service.form_type == 'image' %}
+                                            <a href="{{ url_for('design_image_form', service_id=service.id) }}" 
+                                               class="btn btn-sm btn-success">
+                                                <i class="bi bi-palette"></i>
+                                                طراحی
+                                            </a>
+                                            <a href="{{ url_for('edit_image_form_fields', service_id=service.id) }}" 
+                                               class="btn btn-sm btn-primary">
+                                                <i class="bi bi-list-task"></i>
+                                                فیلدها
+                                            </a>
+                                        {% else %}
+                                            <a href="{{ url_for('edit_service_fields', service_id=service.id) }}" 
+                                               class="btn btn-sm btn-primary">
+                                                <i class="bi bi-list-task"></i>
+                                                فیلدها
+                                            </a>
+                                        {% endif %}
                                         <a href="{{ url_for('service_stats', service_id=service.id) }}" 
                                            class="btn btn-sm btn-info">
                                             <i class="bi bi-bar-chart"></i>

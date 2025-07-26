@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}تعریف فیلدهای فرم - {{ service.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-list-check"></i>
+                        تعریف فیلدهای فرم
+                    </h4>
+                    <div>
+                        <a href="{{ url_for('design_image_form', service_id=service.id) }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-right"></i>
+                            بازگشت به طراحی
+                        </a>
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i>
+                            تکمیل
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>راهنما:</strong> فیلدهای زیر در طراحی فرم شما تعریف شده‌اند. برای هر فیلد، نوع داده و تنظیمات مربوطه را مشخص کنید.
+                    </div>
+                    
+                    <form method="POST">
+                        <div id="fields-container">
+                            {% if fields %}
+                                {% for field in fields %}
+                                <div class="field-row border rounded p-3 mb-3">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label class="form-label">برچسب فیلد:</label>
+                                            <input type="text" name="field_label" class="form-control" value="{{ field.field_label }}" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">نام فیلد (انگلیسی):</label>
+                                            <input type="text" name="field_name" class="form-control" value="{{ field.field_name }}" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">نوع فیلد:</label>
+                                            <select name="field_type" class="form-control">
+                                                <option value="text" {% if field.field_type == 'text' %}selected{% endif %}>متن</option>
+                                                <option value="number" {% if field.field_type == 'number' %}selected{% endif %}>عدد</option>
+                                                <option value="email" {% if field.field_type == 'email' %}selected{% endif %}>ایمیل</option>
+                                                <option value="date" {% if field.field_type == 'date' %}selected{% endif %}>تاریخ</option>
+                                                <option value="textarea" {% if field.field_type == 'textarea' %}selected{% endif %}>متن چند خطی</option>
+                                                <option value="select" {% if field.field_type == 'select' %}selected{% endif %}>لیست کشویی</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">اجباری:</label>
+                                            <div class="form-check mt-2">
+                                                <input type="checkbox" name="is_required" class="form-check-input" {% if field.is_required %}checked{% endif %}>
+                                                <label class="form-check-label">بله</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">عملیات:</label>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeField(this)">
+                                                <i class="bi bi-trash"></i>
+                                                حذف
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label">متن راهنما:</label>
+                                            <input type="text" name="placeholder" class="form-control" value="{{ field.placeholder }}">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">جایگزین در طراحی:</label>
+                                            <input type="text" name="document_placeholder" class="form-control" value="{{ field.document_placeholder }}" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">گزینه‌ها (برای لیست کشویی):</label>
+                                            <textarea name="options" class="form-control" rows="2" placeholder="هر خط یک گزینه">{{ field.options }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <strong>توجه:</strong> هنوز فیلدی تعریف نشده است. ابتدا به صفحه طراحی فرم بروید و تکست‌باکس‌ها را تعریف کنید.
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button type="button" class="btn btn-outline-primary" onclick="addField()">
+                                <i class="bi bi-plus-circle"></i>
+                                افزودن فیلد جدید
+                            </button>
+                        </div>
+                        
+                        {% if fields %}
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('design_image_form', service_id=service.id) }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-right"></i>
+                                بازگشت به طراحی
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i>
+                                ذخیره فیلدها
+                            </button>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addField() {
+    const container = document.getElementById('fields-container');
+    const fieldRow = document.createElement('div');
+    fieldRow.className = 'field-row border rounded p-3 mb-3';
+    
+    fieldRow.innerHTML = `
+        <div class="row">
+            <div class="col-md-3">
+                <label class="form-label">برچسب فیلد:</label>
+                <input type="text" name="field_label" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">نام فیلد (انگلیسی):</label>
+                <input type="text" name="field_name" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">نوع فیلد:</label>
+                <select name="field_type" class="form-control">
+                    <option value="text">متن</option>
+                    <option value="number">عدد</option>
+                    <option value="email">ایمیل</option>
+                    <option value="date">تاریخ</option>
+                    <option value="textarea">متن چند خطی</option>
+                    <option value="select">لیست کشویی</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">اجباری:</label>
+                <div class="form-check mt-2">
+                    <input type="checkbox" name="is_required" class="form-check-input" checked>
+                    <label class="form-check-label">بله</label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">عملیات:</label>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeField(this)">
+                    <i class="bi bi-trash"></i>
+                    حذف
+                </button>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4">
+                <label class="form-label">متن راهنما:</label>
+                <input type="text" name="placeholder" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">جایگزین در طراحی:</label>
+                <input type="text" name="document_placeholder" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">گزینه‌ها (برای لیست کشویی):</label>
+                <textarea name="options" class="form-control" rows="2" placeholder="هر خط یک گزینه"></textarea>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(fieldRow);
+}
+
+function removeField(button) {
+    if (confirm('آیا از حذف این فیلد اطمینان دارید؟')) {
+        button.closest('.field-row').remove();
+    }
+}
+
+// Auto-generate field names from labels
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('input', function(e) {
+        if (e.target.name === 'field_label') {
+            const fieldNameInput = e.target.closest('.field-row').querySelector('input[name="field_name"]');
+            if (!fieldNameInput.value) {
+                // Convert Persian text to English field name
+                const label = e.target.value;
+                const fieldName = label
+                    .replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g, '') // Remove Persian/Arabic
+                    .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+                    .trim()
+                    .replace(/\s+/g, '_') // Replace spaces with underscores
+                    .toLowerCase();
+                
+                if (fieldName) {
+                    fieldNameInput.value = fieldName;
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
