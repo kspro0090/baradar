@@ -45,8 +45,37 @@ class CreateAdminForm(FlaskForm):
 class ServiceForm(FlaskForm):
     name = StringField('نام خدمت', validators=[DataRequired(), Length(max=200)])
     description = TextAreaField('توضیحات')
-    google_doc_id = StringField('شناسه Google Docs', validators=[DataRequired()], 
+    form_type = SelectField('نوع فرم', choices=[
+        ('google_doc', 'Google Docs'),
+        ('image', 'تصویر (JPG/PNG)')
+    ], validators=[DataRequired()])
+    google_doc_id = StringField('شناسه Google Docs', 
                                render_kw={'placeholder': 'مثال: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'})
+    image_file = FileField('فایل تصویر', validators=[
+        FileAllowed(['jpg', 'jpeg', 'png'], 'فقط فایل‌های JPG و PNG مجاز هستند.')
+    ])
+    page_size = SelectField('اندازه صفحه', choices=[
+        ('A4', 'A4'),
+        ('A5', 'A5'),
+        ('original', 'اندازه اصلی تصویر')
+    ], default='A4')
+
+class ImageServiceForm(FlaskForm):
+    name = StringField('نام خدمت', validators=[DataRequired(), Length(max=200)])
+    description = TextAreaField('توضیحات')
+    image_file = FileField('فایل تصویر', validators=[
+        FileRequired('لطفاً یک فایل تصویر انتخاب کنید.'),
+        FileAllowed(['jpg', 'jpeg', 'png'], 'فقط فایل‌های JPG و PNG مجاز هستند.')
+    ])
+    page_size = SelectField('اندازه صفحه', choices=[
+        ('A4', 'A4'),
+        ('A5', 'A5'),
+        ('original', 'اندازه اصلی تصویر')
+    ], default='A4')
+
+class FormDesignForm(FlaskForm):
+    """Form for saving form design data"""
+    design_data = StringField('Form Design Data')
 
 class FormFieldForm(FlaskForm):
     field_label = StringField('برچسب فیلد', validators=[DataRequired()])
@@ -71,8 +100,6 @@ class ServiceRequestForm(FlaskForm):
 class ApprovalForm(FlaskForm):
     action = SelectField('عملیات', choices=[('approve', 'تایید'), ('reject', 'رد')], validators=[DataRequired()])
     note = TextAreaField('یادداشت')
-
-
 
 class TrackingForm(FlaskForm):
     tracking_code = StringField('کد پیگیری', validators=[DataRequired(), Length(max=20)])

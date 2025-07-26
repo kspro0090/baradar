@@ -152,31 +152,65 @@ def create_service():
     """Create new service"""
     form = ServiceForm()
     if form.validate_on_submit():
-        # Verify Google Doc access
-        if google_docs_service:
-            try:
-                if not google_docs_service.verify_document_access(form.google_doc_id.data):
-                    flash('خطا: دسترسی به Google Doc امکان‌پذیر نیست. لطفاً شناسه را بررسی کنید.', 'danger')
-                    return render_template('admin/create_service.html', form=form)
-            except Exception as e:
-                flash(f'خطا در دسترسی به Google Doc: {str(e)}', 'danger')
-                return render_template('admin/create_service.html', form=form)
-        else:
-            flash('خطا: سرویس Google Docs پیکربندی نشده است.', 'danger')
-            return render_template('admin/create_service.html', form=form)
-        
         try:
             service = Service(
                 name=form.name.data,
                 description=form.description.data,
-                google_doc_id=form.google_doc_id.data,
+                form_type=form.form_type.data,
+                page_size=form.page_size.data,
                 created_by=current_user.id
             )
+            
+            if form.form_type.data == 'google_doc':
+                # Verify Google Doc access
+                if not form.google_doc_id.data:
+                    flash('خطا: شناسه Google Doc الزامی است.', 'danger')
+                    return render_template('admin/create_service.html', form=form)
+                
+                if google_docs_service:
+                    try:
+                        if not google_docs_service.verify_document_access(form.google_doc_id.data):
+                            flash('خطا: دسترسی به Google Doc امکان‌پذیر نیست. لطفاً شناسه را بررسی کنید.', 'danger')
+                            return render_template('admin/create_service.html', form=form)
+                    except Exception as e:
+                        flash(f'خطا در دسترسی به Google Doc: {str(e)}', 'danger')
+                        return render_template('admin/create_service.html', form=form)
+                else:
+                    flash('خطا: سرویس Google Docs پیکربندی نشده است.', 'danger')
+                    return render_template('admin/create_service.html', form=form)
+                
+                service.google_doc_id = form.google_doc_id.data
+                
+            elif form.form_type.data == 'image':
+                # Handle image upload
+                if not form.image_file.data:
+                    flash('خطا: فایل تصویر الزامی است.', 'danger')
+                    return render_template('admin/create_service.html', form=form)
+                
+                # Save uploaded image
+                image_file = form.image_file.data
+                filename = secure_filename(image_file.filename)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"{timestamp}_{filename}"
+                image_path = os.path.join('static', 'uploads', 'images', filename)
+                full_path = os.path.join(app.root_path, image_path)
+                
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                image_file.save(full_path)
+                
+                service.image_path = image_path
             
             db.session.add(service)
             db.session.commit()
             flash('خدمت جدید با موفقیت ایجاد شد.', 'success')
-            return redirect(url_for('edit_service_fields', service_id=service.id))
+            
+            # Redirect based on form type
+            if form.form_type.data == 'image':
+                return redirect(url_for('design_image_form', service_id=service.id))
+            else:
+                return redirect(url_for('edit_service_fields', service_id=service.id))
+                
         except Exception as e:
             db.session.rollback()
             app.logger.error(f'Error creating service: {str(e)}')
@@ -333,6 +367,105 @@ def service_stats(service_id):
     stats = service.get_stats()
     recent_requests = service.requests.order_by(ServiceRequest.created_at.desc()).limit(10).all()
     return render_template('admin/service_stats.html', service=service, stats=stats, recent_requests=recent_requests)
+
+@app.route('/admin/services/<int:service_id>/design', methods=['GET', 'POST'])
+@login_required
+@system_manager_required
+def design_image_form(service_id):
+    """Design form on uploaded image"""
+    service = Service.query.get_or_404(service_id)
+    
+    if service.form_type != 'image':
+        flash('این خدمت از نوع تصویر نیست.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    if request.method == 'POST':
+        try:
+            design_data = request.get_json()
+            service.set_form_design_data(design_data)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'طراحی فرم ذخیره شد.'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error saving form design: {str(e)}')
+            return jsonify({'success': False, 'error': 'خطا در ذخیره طراحی فرم.'}), 500
+    
+    return render_template('admin/design_image_form.html', service=service)
+
+@app.route('/admin/services/<int:service_id>/design/save', methods=['POST'])
+@login_required
+@system_manager_required
+def save_form_design(service_id):
+    """Save form design data via AJAX"""
+    service = Service.query.get_or_404(service_id)
+    
+    if service.form_type != 'image':
+        return jsonify({'success': False, 'error': 'این خدمت از نوع تصویر نیست.'}), 400
+    
+    try:
+        design_data = request.get_json()
+        service.set_form_design_data(design_data)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'طراحی فرم ذخیره شد.'})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Error saving form design: {str(e)}')
+        return jsonify({'success': False, 'error': 'خطا در ذخیره طراحی فرم.'}), 500
+
+@app.route('/admin/services/<int:service_id>/design/fields', methods=['GET', 'POST'])
+@login_required
+@system_manager_required
+def edit_image_form_fields(service_id):
+    """Edit form fields for image-based form"""
+    service = Service.query.get_or_404(service_id)
+    
+    if service.form_type != 'image':
+        flash('این خدمت از نوع تصویر نیست.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            field_labels = request.form.getlist('field_label')
+            field_names = request.form.getlist('field_name')
+            field_types = request.form.getlist('field_type')
+            is_required_list = request.form.getlist('is_required')
+            placeholders = request.form.getlist('placeholder')
+            document_placeholders = request.form.getlist('document_placeholder')
+            options_list = request.form.getlist('options')
+            
+            # Clear existing fields
+            service.form_fields.delete()
+            
+            # Add new fields
+            for i in range(len(field_labels)):
+                if field_labels[i].strip():  # Only add if label is not empty
+                    field = FormField(
+                        service_id=service.id,
+                        field_label=field_labels[i].strip(),
+                        field_name=field_names[i].strip(),
+                        field_type=field_types[i],
+                        is_required=bool(is_required_list),
+                        placeholder=placeholders[i].strip(),
+                        document_placeholder=document_placeholders[i].strip(),
+                        options=options_list[i].strip(),
+                        field_order=i
+                    )
+                    db.session.add(field)
+            
+            db.session.commit()
+            flash('فیلدهای فرم با موفقیت ذخیره شدند.', 'success')
+            return redirect(url_for('admin_dashboard'))
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error saving form fields: {str(e)}')
+            flash('خطا در ذخیره فیلدهای فرم. لطفاً دوباره تلاش کنید.', 'danger')
+    
+    # Get existing fields for editing
+    existing_fields = service.form_fields.order_by(FormField.field_order).all()
+    
+    return render_template('admin/edit_image_form_fields.html', service=service, fields=existing_fields)
 
 
 
@@ -580,9 +713,20 @@ def download_pdf(tracking_code):
 
 # PDF Generation
 def generate_pdf_from_request(service_request):
-    """Generate PDF from approved request using Google Docs"""
+    """Generate PDF from approved request using Google Docs or Image-based form"""
     service = service_request.service
     form_data = service_request.get_form_data()
+    
+    if service.form_type == 'google_doc':
+        return generate_pdf_from_google_docs(service_request, form_data)
+    elif service.form_type == 'image':
+        return generate_pdf_from_image(service_request, form_data)
+    else:
+        raise Exception(f"Unsupported form type: {service.form_type}")
+
+def generate_pdf_from_google_docs(service_request, form_data):
+    """Generate PDF from Google Docs template"""
+    service = service_request.service
     
     if not google_docs_service:
         raise Exception("Google Docs service not configured")
@@ -629,6 +773,46 @@ def generate_pdf_from_request(service_request):
                 google_docs_service.delete_document(temp_doc_id)
             except:
                 pass
+        raise e
+
+def generate_pdf_from_image(service_request, form_data):
+    """Generate PDF from image-based form"""
+    service = service_request.service
+    
+    if not service.image_path:
+        raise Exception("No image template configured for this service")
+    
+    try:
+        # Import image PDF generator
+        from image_pdf_generator import generate_pdf_from_image
+        
+        # Get design data
+        design_data = service.get_form_design_data()
+        
+        # Prepare image path
+        image_path = os.path.join(app.root_path, service.image_path)
+        
+        # Prepare output path
+        pdf_filename = f"output_{service_request.tracking_code}.pdf"
+        pdf_path = os.path.join(app.config['PDF_OUTPUT_FOLDER'], pdf_filename)
+        
+        # Generate PDF
+        success = generate_pdf_from_image(
+            image_path=image_path,
+            output_path=pdf_path,
+            form_data=form_data,
+            design_data=design_data,
+            page_size=service.page_size,
+            fonts_dir=os.path.join(app.root_path, 'fonts')
+        )
+        
+        if success:
+            return pdf_filename
+        else:
+            raise Exception("Failed to generate PDF from image")
+        
+    except Exception as e:
+        app.logger.error(f"Error generating PDF from image: {str(e)}")
         raise e
     
 

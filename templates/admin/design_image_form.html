@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+
+{% block title %}طراحی فرم روی تصویر - {{ service.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.canvas-container {
+    position: relative;
+    display: inline-block;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#formCanvas {
+    display: block;
+    cursor: crosshair;
+}
+
+.textbox {
+    position: absolute;
+    border: 2px dashed #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+    cursor: move;
+    min-width: 100px;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #007bff;
+    user-select: none;
+}
+
+.textbox.selected {
+    border-color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.textbox-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: #007bff;
+    border: 1px solid white;
+    cursor: se-resize;
+    bottom: -4px;
+    right: -4px;
+}
+
+.textbox.selected .textbox-handle {
+    background-color: #dc3545;
+}
+
+.controls-panel {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.field-mapping {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.field-mapping h6 {
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.form-field-select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.font-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.font-controls select,
+.font-controls input {
+    padding: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.toolbar {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.toolbar .btn {
+    margin-right: 10px;
+    margin-bottom: 5px;
+}
+
+.textbox-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.textbox-item {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.textbox-item:hover {
+    background-color: #f8f9fa;
+}
+
+.textbox-item.selected {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+}
+
+.textbox-item .textbox-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.textbox-item .textbox-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.textbox-item .textbox-field {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.textbox-item .textbox-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.textbox-item .btn-sm {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- Left Panel - Canvas and Controls -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-palette"></i>
+                        طراحی فرم روی تصویر
+                    </h5>
+                    <div>
+                        <button type="button" class="btn btn-success" onclick="saveDesign()">
+                            <i class="bi bi-check-circle"></i>
+                            ذخیره طراحی
+                        </button>
+                        <a href="{{ url_for('edit_image_form_fields', service_id=service.id) }}" class="btn btn-primary">
+                            <i class="bi bi-arrow-left"></i>
+                            ادامه به تعریف فیلدها
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Toolbar -->
+                    <div class="toolbar">
+                        <h6 class="mb-3">
+                            <i class="bi bi-tools"></i>
+                            ابزارها
+                        </h6>
+                        <button type="button" class="btn btn-outline-primary" onclick="addTextbox()">
+                            <i class="bi bi-plus-square"></i>
+                            افزودن تکست‌باکس
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="deleteSelectedTextbox()">
+                            <i class="bi bi-trash"></i>
+                            حذف انتخاب شده
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearAllTextboxes()">
+                            <i class="bi bi-x-circle"></i>
+                            حذف همه
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="resetCanvas()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            بازنشانی
+                        </button>
+                    </div>
+                    
+                    <!-- Canvas Container -->
+                    <div class="text-center">
+                        <div class="canvas-container">
+                            <canvas id="formCanvas" width="800" height="600"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Properties and Field Mapping -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-gear"></i>
+                        تنظیمات
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Textbox Properties -->
+                    <div id="textbox-properties" style="display: none;">
+                        <h6 class="mb-3">
+                            <i class="bi bi-pencil-square"></i>
+                            تنظیمات تکست‌باکس
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">متن نمایشی:</label>
+                            <input type="text" id="textbox-label" class="form-control" placeholder="مثال: نام و نام خانوادگی">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">اتصال به فیلد:</label>
+                            <select id="textbox-field" class="form-control">
+                                <option value="">انتخاب فیلد...</option>
+                                <!-- Will be populated dynamically -->
+                            </select>
+                        </div>
+                        
+                        <div class="font-controls">
+                            <div>
+                                <label class="form-label">فونت:</label>
+                                <select id="textbox-font" class="form-control">
+                                    <option value="Arial">Arial</option>
+                                    <option value="Times New Roman">Times New Roman</option>
+                                    <option value="Courier New">Courier New</option>
+                                    <option value="Tahoma">Tahoma</option>
+                                    <option value="B Nazanin">B Nazanin</option>
+                                    <option value="B Titr">B Titr</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label">اندازه:</label>
+                                <input type="number" id="textbox-size" class="form-control" value="12" min="8" max="72">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">رنگ:</label>
+                            <input type="color" id="textbox-color" class="form-control" value="#000000">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">موقعیت:</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <input type="number" id="textbox-x" class="form-control" placeholder="X">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" id="textbox-y" class="form-control" placeholder="Y">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">اندازه:</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <input type="number" id="textbox-width" class="form-control" placeholder="عرض">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" id="textbox-height" class="form-control" placeholder="ارتفاع">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Textbox List -->
+                    <div id="textbox-list">
+                        <h6 class="mb-3">
+                            <i class="bi bi-list-ul"></i>
+                            تکست‌باکس‌ها
+                        </h6>
+                        <div id="textbox-items" class="textbox-list">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let canvas, ctx;
+let image = new Image();
+let textboxes = [];
+let selectedTextbox = null;
+let isDrawing = false;
+let startX, startY;
+
+// Initialize canvas
+document.addEventListener('DOMContentLoaded', function() {
+    canvas = document.getElementById('formCanvas');
+    ctx = canvas.getContext('2d');
+    
+    // Load the uploaded image
+    image.onload = function() {
+        // Calculate canvas size based on image and page size
+        const pageSize = '{{ service.page_size }}';
+        let canvasWidth, canvasHeight;
+        
+        if (pageSize === 'A4') {
+            canvasWidth = 595; // A4 width in points
+            canvasHeight = 842; // A4 height in points
+        } else if (pageSize === 'A5') {
+            canvasWidth = 420; // A5 width in points
+            canvasHeight = 595; // A5 height in points
+        } else {
+            // Original image size
+            canvasWidth = image.width;
+            canvasHeight = image.height;
+        }
+        
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        
+        // Scale image to fit canvas
+        const scaleX = canvasWidth / image.width;
+        const scaleY = canvasHeight / image.height;
+        const scale = Math.min(scaleX, scaleY);
+        
+        const scaledWidth = image.width * scale;
+        const scaledHeight = image.height * scale;
+        const offsetX = (canvasWidth - scaledWidth) / 2;
+        const offsetY = (canvasHeight - scaledHeight) / 2;
+        
+        // Draw image
+        ctx.drawImage(image, offsetX, offsetY, scaledWidth, scaledHeight);
+        
+        // Load existing design data if any
+        loadExistingDesign();
+        
+        // Setup event listeners
+        setupEventListeners();
+    };
+    
+    image.src = '{{ url_for("static", filename=service.image_path) }}';
+});
+
+function setupEventListeners() {
+    // Canvas click events
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    
+    // Property change events
+    document.getElementById('textbox-label').addEventListener('input', updateSelectedTextbox);
+    document.getElementById('textbox-field').addEventListener('change', updateSelectedTextbox);
+    document.getElementById('textbox-font').addEventListener('change', updateSelectedTextbox);
+    document.getElementById('textbox-size').addEventListener('input', updateSelectedTextbox);
+    document.getElementById('textbox-color').addEventListener('change', updateSelectedTextbox);
+    document.getElementById('textbox-x').addEventListener('input', updateSelectedTextbox);
+    document.getElementById('textbox-y').addEventListener('input', updateSelectedTextbox);
+    document.getElementById('textbox-width').addEventListener('input', updateSelectedTextbox);
+    document.getElementById('textbox-height').addEventListener('input', updateSelectedTextbox);
+}
+
+function handleMouseDown(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Check if clicking on existing textbox
+    const clickedTextbox = findTextboxAt(x, y);
+    if (clickedTextbox) {
+        selectTextbox(clickedTextbox);
+        return;
+    }
+    
+    // Start drawing new textbox
+    isDrawing = true;
+    startX = x;
+    startY = y;
+    canvas.style.cursor = 'crosshair';
+}
+
+function handleMouseMove(e) {
+    if (!isDrawing) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Redraw canvas with temporary rectangle
+    redrawCanvas();
+    drawTextbox(startX, startY, x - startX, y - startY, true);
+}
+
+function handleMouseUp(e) {
+    if (!isDrawing) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    isDrawing = false;
+    canvas.style.cursor = 'crosshair';
+    
+    // Create new textbox
+    const width = Math.abs(x - startX);
+    const height = Math.abs(y - startY);
+    
+    if (width > 10 && height > 10) {
+        const newTextbox = {
+            id: Date.now(),
+            x: Math.min(startX, x),
+            y: Math.min(startY, y),
+            width: width,
+            height: height,
+            label: 'تکست‌باکس جدید',
+            field: '',
+            font: 'Arial',
+            size: 12,
+            color: '#000000'
+        };
+        
+        textboxes.push(newTextbox);
+        selectTextbox(newTextbox);
+        updateTextboxList();
+        redrawCanvas();
+    }
+}
+
+function findTextboxAt(x, y) {
+    for (let i = textboxes.length - 1; i >= 0; i--) {
+        const textbox = textboxes[i];
+        if (x >= textbox.x && x <= textbox.x + textbox.width &&
+            y >= textbox.y && y <= textbox.y + textbox.height) {
+            return textbox;
+        }
+    }
+    return null;
+}
+
+function selectTextbox(textbox) {
+    selectedTextbox = textbox;
+    updatePropertiesPanel();
+    updateTextboxList();
+    redrawCanvas();
+}
+
+function updatePropertiesPanel() {
+    const panel = document.getElementById('textbox-properties');
+    
+    if (selectedTextbox) {
+        panel.style.display = 'block';
+        document.getElementById('textbox-label').value = selectedTextbox.label;
+        document.getElementById('textbox-field').value = selectedTextbox.field;
+        document.getElementById('textbox-font').value = selectedTextbox.font;
+        document.getElementById('textbox-size').value = selectedTextbox.size;
+        document.getElementById('textbox-color').value = selectedTextbox.color;
+        document.getElementById('textbox-x').value = Math.round(selectedTextbox.x);
+        document.getElementById('textbox-y').value = Math.round(selectedTextbox.y);
+        document.getElementById('textbox-width').value = Math.round(selectedTextbox.width);
+        document.getElementById('textbox-height').value = Math.round(selectedTextbox.height);
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function updateSelectedTextbox() {
+    if (!selectedTextbox) return;
+    
+    selectedTextbox.label = document.getElementById('textbox-label').value;
+    selectedTextbox.field = document.getElementById('textbox-field').value;
+    selectedTextbox.font = document.getElementById('textbox-font').value;
+    selectedTextbox.size = parseInt(document.getElementById('textbox-size').value);
+    selectedTextbox.color = document.getElementById('textbox-color').value;
+    selectedTextbox.x = parseInt(document.getElementById('textbox-x').value);
+    selectedTextbox.y = parseInt(document.getElementById('textbox-y').value);
+    selectedTextbox.width = parseInt(document.getElementById('textbox-width').value);
+    selectedTextbox.height = parseInt(document.getElementById('textbox-height').value);
+    
+    updateTextboxList();
+    redrawCanvas();
+}
+
+function updateTextboxList() {
+    const container = document.getElementById('textbox-items');
+    container.innerHTML = '';
+    
+    textboxes.forEach((textbox, index) => {
+        const item = document.createElement('div');
+        item.className = `textbox-item ${textbox === selectedTextbox ? 'selected' : ''}`;
+        item.onclick = () => selectTextbox(textbox);
+        
+        item.innerHTML = `
+            <div class="textbox-info">
+                <div>
+                    <div class="textbox-label">${textbox.label}</div>
+                    <div class="textbox-field">${textbox.field || 'بدون اتصال'}</div>
+                </div>
+                <div class="textbox-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteTextbox(${index}); event.stopPropagation();">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(item);
+    });
+}
+
+function redrawCanvas() {
+    // Redraw image
+    const scaleX = canvas.width / image.width;
+    const scaleY = canvas.height / image.height;
+    const scale = Math.min(scaleX, scaleY);
+    
+    const scaledWidth = image.width * scale;
+    const scaledHeight = image.height * scale;
+    const offsetX = (canvas.width - scaledWidth) / 2;
+    const offsetY = (canvas.height - scaledHeight) / 2;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, offsetX, offsetY, scaledWidth, scaledHeight);
+    
+    // Draw all textboxes
+    textboxes.forEach(textbox => {
+        drawTextbox(textbox.x, textbox.y, textbox.width, textbox.height, false, textbox);
+    });
+}
+
+function drawTextbox(x, y, width, height, isTemporary = false, textbox = null) {
+    ctx.strokeStyle = isTemporary ? '#007bff' : (textbox === selectedTextbox ? '#dc3545' : '#007bff');
+    ctx.lineWidth = 2;
+    ctx.setLineDash(isTemporary ? [5, 5] : []);
+    ctx.strokeRect(x, y, width, height);
+    ctx.setLineDash([]);
+    
+    if (textbox && !isTemporary) {
+        // Draw textbox label
+        ctx.fillStyle = textbox.color;
+        ctx.font = `${textbox.size}px ${textbox.font}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const textX = x + width / 2;
+        const textY = y + height / 2;
+        
+        // Draw background for text
+        const textMetrics = ctx.measureText(textbox.label);
+        const textWidth = textMetrics.width;
+        const textHeight = textbox.size;
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillRect(textX - textWidth/2 - 2, textY - textHeight/2 - 2, textWidth + 4, textHeight + 4);
+        
+        // Draw text
+        ctx.fillStyle = textbox.color;
+        ctx.fillText(textbox.label, textX, textY);
+    }
+}
+
+function addTextbox() {
+    const newTextbox = {
+        id: Date.now(),
+        x: 50,
+        y: 50,
+        width: 150,
+        height: 30,
+        label: 'تکست‌باکس جدید',
+        field: '',
+        font: 'Arial',
+        size: 12,
+        color: '#000000'
+    };
+    
+    textboxes.push(newTextbox);
+    selectTextbox(newTextbox);
+    updateTextboxList();
+    redrawCanvas();
+}
+
+function deleteSelectedTextbox() {
+    if (selectedTextbox) {
+        const index = textboxes.indexOf(selectedTextbox);
+        if (index > -1) {
+            textboxes.splice(index, 1);
+            selectedTextbox = null;
+            updatePropertiesPanel();
+            updateTextboxList();
+            redrawCanvas();
+        }
+    }
+}
+
+function deleteTextbox(index) {
+    textboxes.splice(index, 1);
+    if (selectedTextbox === textboxes[index]) {
+        selectedTextbox = null;
+        updatePropertiesPanel();
+    }
+    updateTextboxList();
+    redrawCanvas();
+}
+
+function clearAllTextboxes() {
+    if (confirm('آیا از حذف همه تکست‌باکس‌ها اطمینان دارید؟')) {
+        textboxes = [];
+        selectedTextbox = null;
+        updatePropertiesPanel();
+        updateTextboxList();
+        redrawCanvas();
+    }
+}
+
+function resetCanvas() {
+    if (confirm('آیا از بازنشانی کامل طراحی اطمینان دارید؟')) {
+        textboxes = [];
+        selectedTextbox = null;
+        updatePropertiesPanel();
+        updateTextboxList();
+        redrawCanvas();
+    }
+}
+
+function loadExistingDesign() {
+    const designData = {{ service.get_form_design_data() | tojson | safe }};
+    if (designData && designData.textboxes) {
+        textboxes = designData.textboxes;
+        updateTextboxList();
+        redrawCanvas();
+    }
+}
+
+function saveDesign() {
+    const designData = {
+        textboxes: textboxes,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        pageSize: '{{ service.page_size }}'
+    };
+    
+    fetch('{{ url_for("save_form_design", service_id=service.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(designData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('طراحی فرم با موفقیت ذخیره شد.');
+        } else {
+            alert('خطا در ذخیره طراحی: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('خطا در ارتباط با سرور.');
+    });
+}
+</script>
+{% endblock %}
