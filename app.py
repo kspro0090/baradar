@@ -29,6 +29,10 @@ login_manager.login_message = 'لطفاً وارد شوید.'
 # Create directories if they don't exist
 os.makedirs(app.config['PDF_OUTPUT_FOLDER'], exist_ok=True)
 
+# Initialize PDF queue processor with app and db
+from pdf_queue_processor import init_queue_processor
+init_queue_processor(app, db)
+
 # Initialize Google Docs service
 google_docs_service = None
 try:
@@ -124,16 +128,21 @@ def create_admin():
     """Create new approval admin"""
     form = CreateAdminForm()
     if form.validate_on_submit():
-        admin = User(
-            username=form.username.data,
-            email=form.email.data,
-            role='approval_admin'
-        )
-        admin.set_password(form.password.data)
-        db.session.add(admin)
-        db.session.commit()
-        flash(f'مدیر تایید "{admin.username}" با موفقیت ایجاد شد.', 'success')
-        return redirect(url_for('admin_dashboard'))
+        try:
+            admin = User(
+                username=form.username.data,
+                email=form.email.data,
+                role='approval_admin'
+            )
+            admin.set_password(form.password.data)
+            db.session.add(admin)
+            db.session.commit()
+            flash(f'مدیر تایید "{admin.username}" با موفقیت ایجاد شد.', 'success')
+            return redirect(url_for('admin_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error creating admin: {str(e)}')
+            flash('خطا در ایجاد مدیر. لطفاً دوباره تلاش کنید.', 'danger')
     return render_template('admin/create_admin.html', form=form)
 
 @app.route('/admin/services/create', methods=['GET', 'POST'])
@@ -156,17 +165,22 @@ def create_service():
             flash('خطا: سرویس Google Docs پیکربندی نشده است.', 'danger')
             return render_template('admin/create_service.html', form=form)
         
-        service = Service(
-            name=form.name.data,
-            description=form.description.data,
-            google_doc_id=form.google_doc_id.data,
-            created_by=current_user.id
-        )
-        
-        db.session.add(service)
-        db.session.commit()
-        flash('خدمت جدید با موفقیت ایجاد شد.', 'success')
-        return redirect(url_for('edit_service_fields', service_id=service.id))
+        try:
+            service = Service(
+                name=form.name.data,
+                description=form.description.data,
+                google_doc_id=form.google_doc_id.data,
+                created_by=current_user.id
+            )
+            
+            db.session.add(service)
+            db.session.commit()
+            flash('خدمت جدید با موفقیت ایجاد شد.', 'success')
+            return redirect(url_for('edit_service_fields', service_id=service.id))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error creating service: {str(e)}')
+            flash('خطا در ایجاد خدمت. لطفاً دوباره تلاش کنید.', 'danger')
     return render_template('admin/create_service.html', form=form)
 
 @app.route('/admin/services/preview-google-doc/<doc_id>')
@@ -219,13 +233,18 @@ def edit_service(service_id):
                 flash('خطا: سرویس Google Docs پیکربندی نشده است.', 'danger')
                 return render_template('admin/edit_service.html', form=form, service=service)
         
-        service.name = form.name.data
-        service.description = form.description.data
-        service.google_doc_id = form.google_doc_id.data
-        
-        db.session.commit()
-        flash('خدمت با موفقیت به‌روزرسانی شد.', 'success')
-        return redirect(url_for('admin_dashboard'))
+        try:
+            service.name = form.name.data
+            service.description = form.description.data
+            service.google_doc_id = form.google_doc_id.data
+            
+            db.session.commit()
+            flash('خدمت با موفقیت به‌روزرسانی شد.', 'success')
+            return redirect(url_for('admin_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error updating service: {str(e)}')
+            flash('خطا در به‌روزرسانی خدمت. لطفاً دوباره تلاش کنید.', 'danger')
     
     return render_template('admin/edit_service.html', form=form, service=service)
 
@@ -237,29 +256,73 @@ def edit_service_fields(service_id):
     service = Service.query.get_or_404(service_id)
     form = FormFieldForm()
     
-    if form.validate_on_submit():
-        field = FormField(
-            service_id=service.id,
-            field_name=form.field_name.data,
-            field_label=form.field_label.data,
-            field_type=form.field_type.data,
-            is_required=form.is_required.data,
-            placeholder=form.placeholder.data,
-            document_placeholder=form.document_placeholder.data,
-            field_order=service.form_fields.count()
-        )
-        
-        if form.field_type.data == 'select' and form.options.data:
-            options = [opt.strip() for opt in form.options.data.split('\n') if opt.strip()]
-            field.options = json.dumps(options, ensure_ascii=False)
-        
-        db.session.add(field)
-        db.session.commit()
-        flash('فیلد جدید اضافه شد.', 'success')
-        return redirect(url_for('edit_service_fields', service_id=service.id))
+    # Auto-approval settings form
+    from forms import AutoApprovalSettingsForm
+    auto_approval_form = AutoApprovalSettingsForm()
+    
+    # Populate field choices for auto-approval
+    field_choices = [('', '-- انتخاب کنید --')]
+    for field in service.form_fields:
+        field_choices.append((field.field_name, field.field_label))
+    auto_approval_form.auto_approve_field_name.choices = field_choices
+    
+    # Handle auto-approval form submission
+    if request.method == 'POST' and 'save_auto_approval' in request.form:
+        if auto_approval_form.validate():
+            try:
+                service.auto_approve_enabled = auto_approval_form.auto_approve_enabled.data
+                service.auto_approve_sheet_id = auto_approval_form.auto_approve_sheet_id.data or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ"
+                service.auto_approve_sheet_column = auto_approval_form.auto_approve_sheet_column.data or "A"
+                service.auto_approve_field_name = auto_approval_form.auto_approve_field_name.data
+                
+                db.session.commit()
+                flash('تنظیمات تأیید خودکار ذخیره شد.', 'success')
+                return redirect(url_for('edit_service_fields', service_id=service.id))
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f'Error saving auto-approval settings: {str(e)}')
+                flash('خطا در ذخیره تنظیمات تأیید خودکار. لطفاً دوباره تلاش کنید.', 'danger')
+    
+    # Handle field form submission
+    if form.validate_on_submit() and 'save_auto_approval' not in request.form:
+        try:
+            field = FormField(
+                service_id=service.id,
+                field_name=form.field_name.data,
+                field_label=form.field_label.data,
+                field_type=form.field_type.data,
+                is_required=form.is_required.data,
+                placeholder=form.placeholder.data,
+                document_placeholder=form.document_placeholder.data,
+                field_order=service.form_fields.count()
+            )
+            
+            if form.field_type.data == 'select' and form.options.data:
+                options = [opt.strip() for opt in form.options.data.split('\n') if opt.strip()]
+                field.options = json.dumps(options, ensure_ascii=False)
+            
+            db.session.add(field)
+            db.session.commit()
+            flash('فیلد جدید اضافه شد.', 'success')
+            return redirect(url_for('edit_service_fields', service_id=service.id))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error adding field: {str(e)}')
+            flash('خطا در افزودن فیلد. لطفاً دوباره تلاش کنید.', 'danger')
+    
+    # Pre-populate auto-approval form with current values
+    if request.method == 'GET':
+        auto_approval_form.auto_approve_enabled.data = service.auto_approve_enabled
+        auto_approval_form.auto_approve_sheet_id.data = service.auto_approve_sheet_id
+        auto_approval_form.auto_approve_sheet_column.data = service.auto_approve_sheet_column
+        auto_approval_form.auto_approve_field_name.data = service.auto_approve_field_name
     
     fields = service.form_fields.order_by(FormField.field_order).all()
-    return render_template('admin/edit_fields.html', service=service, form=form, fields=fields)
+    return render_template('admin/edit_fields.html', 
+                         service=service, 
+                         form=form, 
+                         fields=fields,
+                         auto_approval_form=auto_approval_form)
 
 @app.route('/admin/services/<int:service_id>/stats')
 @login_required
@@ -294,22 +357,47 @@ def review_request(request_id):
     form = ApprovalForm()
     
     if form.validate_on_submit():
-        service_request.status = form.action.data + 'd'  # approved or rejected
-        service_request.approval_note = form.note.data
-        service_request.approved_by = current_user.id
+        try:
+            service_request.status = form.action.data + 'd'  # approved or rejected
+            service_request.approval_note = form.note.data
+            service_request.approved_by = current_user.id
+            
+            if form.action.data == 'approve':
+                # Generate PDF using queue system
+                try:
+                    from pdf_queue_processor import add_pdf_task, wait_for_task, ProcessingStatus
+                    
+                    # Add PDF generation to queue
+                    task_id = add_pdf_task(service_request)
+                    app.logger.info(f"Added PDF task {task_id} to queue for manual approval")
+                    
+                    # Wait for task completion (with timeout)
+                    task = wait_for_task(task_id, timeout=30)
+                    
+                    if task:
+                        if task.status == ProcessingStatus.COMPLETED:
+                            service_request.pdf_filename = task.result
+                            db.session.commit()
+                            flash('درخواست تایید شد و PDF تولید شد.', 'success')
+                        else:
+                            db.session.commit()
+                            flash(f'درخواست تایید شد اما تولید PDF با خطا مواجه شد: {task.error}', 'warning')
+                    else:
+                        db.session.commit()
+                        flash('درخواست تایید شد. PDF در صف تولید قرار گرفت.', 'info')
+                        
+                except Exception as e:
+                    db.session.commit()
+                    app.logger.error(f'Error adding PDF to queue: {str(e)}')
+                    flash(f'خطا در تولید PDF: {str(e)}', 'danger')
+            else:
+                db.session.commit()
+                flash('درخواست رد شد.', 'info')
         
-        if form.action.data == 'approve':
-            # Generate PDF
-            try:
-                pdf_filename = generate_pdf_from_request(service_request)
-                service_request.pdf_filename = pdf_filename
-                flash('درخواست تایید شد و PDF تولید شد.', 'success')
-            except Exception as e:
-                flash(f'خطا در تولید PDF: {str(e)}', 'danger')
-        else:
-            flash('درخواست رد شد.', 'info')
-        
-        db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error processing request approval/rejection: {str(e)}')
+            flash('خطا در پردازش درخواست. لطفاً دوباره تلاش کنید.', 'danger')
         return redirect(url_for('approver_dashboard'))
     
     form_data = service_request.get_form_data()
@@ -364,21 +452,87 @@ def request_service(service_id):
     form = DynamicForm()
     
     if form.validate_on_submit():
-        # Collect form data
-        form_data = {}
-        for field in service.form_fields:
-            if hasattr(form, field.field_name):
-                form_data[field.field_name] = getattr(form, field.field_name).data
+        try:
+            # Collect form data
+            form_data = {}
+            for field in service.form_fields:
+                if hasattr(form, field.field_name):
+                    form_data[field.field_name] = getattr(form, field.field_name).data
+            
+            # Create request
+            service_request = ServiceRequest(
+                service_id=service.id,
+                tracking_code=generate_tracking_code()
+            )
+            service_request.set_form_data(form_data)
+            
+            db.session.add(service_request)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error creating service request: {str(e)}')
+            flash('خطا در ثبت درخواست. لطفاً دوباره تلاش کنید.', 'danger')
+            return redirect(url_for('request_service', service_id=service.id))
         
-        # Create request
-        service_request = ServiceRequest(
-            service_id=service.id,
-            tracking_code=generate_tracking_code()
-        )
-        service_request.set_form_data(form_data)
-        
-        db.session.add(service_request)
-        db.session.commit()
+        # Check for auto-approval
+        if service.auto_approve_enabled and service.auto_approve_field_name:
+            try:
+                from google_sheets_checker import check_employee_in_sheet
+                from pdf_queue_processor import add_pdf_task, wait_for_task, ProcessingStatus
+                
+                # Get the value to check
+                check_value = form_data.get(service.auto_approve_field_name, '')
+                
+                if check_value:
+                    # Check if value exists in Google Sheet
+                    sheet_id = service.auto_approve_sheet_id or "1qqmTsIfLwGVPVj7kHnvb3AvAdFcMw37dh0RCoBxYViQ"
+                    column = service.auto_approve_sheet_column or "A"
+                    
+                    if check_employee_in_sheet(check_value, sheet_id, column):
+                        app.logger.info(f"Auto-approving request {service_request.tracking_code} for {check_value}")
+                        
+                        # Auto-approve the request
+                        try:
+                            service_request.status = 'approved'
+                            service_request.approval_note = 'تأیید خودکار بر اساس لیست پرسنل'
+                            db.session.commit()
+                        except Exception as e:
+                            db.session.rollback()
+                            app.logger.error(f"Error auto-approving request: {str(e)}")
+                            flash('خطا در تأیید خودکار. درخواست شما ثبت شد و منتظر تأیید دستی است.', 'warning')
+                            return redirect(url_for('track_request', tracking_code=service_request.tracking_code))
+                        
+                        # Add PDF generation to queue
+                        def on_pdf_complete(task):
+                            """Callback when PDF is generated"""
+                            with app.app_context():
+                                try:
+                                    if task.status == ProcessingStatus.COMPLETED:
+                                        # Re-fetch the service request using the ID
+                                        sr = db.session.get(ServiceRequest, service_request.id)
+                                        if sr:
+                                            sr.pdf_filename = task.result
+                                            db.session.commit()
+                                            app.logger.info(f"PDF generated for auto-approved request: {task.result}")
+                                        else:
+                                            app.logger.error(f"Service request {service_request.id} not found in callback")
+                                    else:
+                                        app.logger.error(f"PDF generation failed for auto-approved request: {task.error}")
+                                except Exception as e:
+                                    db.session.rollback()
+                                    app.logger.error(f"Error in PDF callback: {str(e)}")
+                        
+                        task_id = add_pdf_task(service_request, callback=on_pdf_complete)
+                        app.logger.info(f"Added PDF task {task_id} to queue")
+                        
+                        flash(f'درخواست شما با کد پیگیری {service_request.tracking_code} به صورت خودکار تأیید شد. PDF در حال آماده‌سازی است.', 'success')
+                        return redirect(url_for('track_request', tracking_code=service_request.tracking_code))
+                    else:
+                        app.logger.info(f"Value '{check_value}' not found in sheet, proceeding with manual approval")
+                        
+            except Exception as e:
+                app.logger.error(f"Error in auto-approval check: {str(e)}")
+                # Continue with normal flow if auto-approval fails
         
         flash(f'درخواست شما با کد پیگیری {service_request.tracking_code} ثبت شد.', 'success')
         return redirect(url_for('track_request', tracking_code=service_request.tracking_code))
@@ -487,15 +641,19 @@ def init_db():
     
     # Create default system manager if not exists
     if not User.query.filter_by(role='system_manager').first():
-        admin = User(
-            username='admin',
-            email='admin@example.com',
-            role='system_manager'
-        )
-        admin.set_password('admin123')
-        db.session.add(admin)
-        db.session.commit()
-        print("Default system manager created: username='admin', password='admin123'")
+        try:
+            admin = User(
+                username='admin',
+                email='admin@example.com',
+                role='system_manager'
+            )
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+            print("Default system manager created: username='admin', password='admin123'")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating default admin: {str(e)}")
     
     print("Database initialized!")
 
@@ -517,14 +675,18 @@ if __name__ == '__main__':
         
         # Create default system manager if not exists
         if not User.query.filter_by(role='system_manager').first():
-            admin = User(
-                username='admin',
-                email='admin@example.com',
-                role='system_manager'
-            )
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-            print("Default system manager created: username='admin', password='admin123'")
+            try:
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    role='system_manager'
+                )
+                admin.set_password('admin123')
+                db.session.add(admin)
+                db.session.commit()
+                print("Default system manager created: username='admin', password='admin123'")
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error creating default admin: {str(e)}")
     
     app.run(debug=True)
