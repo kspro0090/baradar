@@ -5,6 +5,7 @@ Checks if a value exists in a specific Google Sheet column
 """
 
 import os
+import time
 import logging
 from typing import List, Optional, Set
 from google.oauth2 import service_account
@@ -58,7 +59,6 @@ class GoogleSheetsChecker:
             # Check cache
             cache_key = f"{spreadsheet_id}:{sheet_name}:{column}"
             if cache_key in self._cache:
-                import time
                 if time.time() - self._last_cache_time.get(cache_key, 0) < self._cache_timeout:
                     logger.debug(f"Using cached values for {cache_key}")
                     return self._cache[cache_key]
