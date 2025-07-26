@@ -29,6 +29,10 @@ login_manager.login_message = 'لطفاً وارد شوید.'
 # Create directories if they don't exist
 os.makedirs(app.config['PDF_OUTPUT_FOLDER'], exist_ok=True)
 
+# Initialize PDF queue processor with app and db
+from pdf_queue_processor import init_queue_processor
+init_queue_processor(app, db)
+
 # Initialize Google Docs service
 google_docs_service = None
 try:
@@ -504,12 +508,14 @@ def request_service(service_id):
                             with app.app_context():
                                 try:
                                     if task.status == ProcessingStatus.COMPLETED:
-                                        # Re-fetch the service request in this context
-                                        sr = ServiceRequest.query.filter_by(tracking_code=service_request.tracking_code).first()
+                                        # Re-fetch the service request using the ID
+                                        sr = db.session.get(ServiceRequest, service_request.id)
                                         if sr:
                                             sr.pdf_filename = task.result
                                             db.session.commit()
                                             app.logger.info(f"PDF generated for auto-approved request: {task.result}")
+                                        else:
+                                            app.logger.error(f"Service request {service_request.id} not found in callback")
                                     else:
                                         app.logger.error(f"PDF generation failed for auto-approved request: {task.error}")
                                 except Exception as e:

@@ -18,6 +18,16 @@ from google_docs_pdf_generator import generate_pdf_for_service_request
 
 logger = logging.getLogger(__name__)
 
+# Flask app and db will be set when initialized
+_app = None
+_db = None
+
+def init_queue_processor(app, db):
+    """Initialize the queue processor with Flask app and db"""
+    global _app, _db
+    _app = app
+    _db = db
+
 class ProcessingStatus(Enum):
     PENDING = "pending"
     PROCESSING = "processing"
@@ -155,26 +165,59 @@ class PDFQueueProcessor:
         
         while retries <= self.max_retries and not success:
             try:
-                # Generate PDF
-                pdf_filename = generate_pdf_for_service_request(task.service_request)
-                
-                if pdf_filename:
-                    # Success
-                    with self._lock:
-                        task.status = ProcessingStatus.COMPLETED
-                        task.result = pdf_filename
-                    
-                    logger.info(f"Task {task.task_id} completed successfully: {pdf_filename}")
-                    success = True
-                    
-                    # Call callback if provided
-                    if task.callback:
-                        try:
-                            task.callback(task)
-                        except Exception as e:
-                            logger.error(f"Error in task callback: {str(e)}")
+                # Use app context for database operations
+                if _app:
+                    with _app.app_context():
+                        # Re-fetch the service request from database to avoid detached instance errors
+                        if hasattr(task.service_request, 'id') and _db:
+                            from models import ServiceRequest
+                            service_request = _db.session.get(ServiceRequest, task.service_request.id)
+                            if not service_request:
+                                raise Exception(f"Service request with id {task.service_request.id} not found")
+                        else:
+                            service_request = task.service_request
+                        
+                        # Generate PDF
+                        pdf_filename = generate_pdf_for_service_request(service_request)
+                        
+                        if pdf_filename:
+                            # Success
+                            with self._lock:
+                                task.status = ProcessingStatus.COMPLETED
+                                task.result = pdf_filename
+                            
+                            logger.info(f"Task {task.task_id} completed successfully: {pdf_filename}")
+                            success = True
+                            
+                            # Call callback if provided
+                            if task.callback:
+                                try:
+                                    task.callback(task)
+                                except Exception as e:
+                                    logger.error(f"Error in task callback: {str(e)}")
+                        else:
+                            raise Exception("PDF generation returned None")
                 else:
-                    raise Exception("PDF generation returned None")
+                    # No app context, run directly
+                    pdf_filename = generate_pdf_for_service_request(task.service_request)
+                    
+                    if pdf_filename:
+                        # Success
+                        with self._lock:
+                            task.status = ProcessingStatus.COMPLETED
+                            task.result = pdf_filename
+                        
+                        logger.info(f"Task {task.task_id} completed successfully: {pdf_filename}")
+                        success = True
+                        
+                        # Call callback if provided
+                        if task.callback:
+                            try:
+                                task.callback(task)
+                            except Exception as e:
+                                logger.error(f"Error in task callback: {str(e)}")
+                    else:
+                        raise Exception("PDF generation returned None")
                     
             except Exception as e:
                 retries += 1
